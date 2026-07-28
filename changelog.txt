@@ -1,3 +1,20 @@
+v0.22
+- Floor some stats instead of rounding
+- Add armor
+- Change save location
+- Remove required text for non consumed items in crafting
+- Fix error when cancelling crafting before starting
+- Fix weather termination
+- Change damage increase skills to be additive
+- Add option to automatically repeat crafting
+- Fix item stacks log not resetting when training log appears
+- Reduce energy faster when fighting
+- Change hospital health regen to scale with max health
+- Display time name in clock
+- Add special enemies that spawn at night
+- Add new respawn location
+- Add option to customise time format
+
 v0.21
 - Fix quest item requirements being lowercase
 - Fix resetting of training area text

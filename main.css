@@ -648,8 +648,15 @@ img {
 .settings-option-holder {
     display: flex;
     gap: 4px;
+    align-items: center;
 }
 
 .settings-option-checkbox {
     margin: 0;
+}
+
+.settings-option-text-input {
+    padding: 0;
+    flex: 1;
+    margin-right: 10px;
 }

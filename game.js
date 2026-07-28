@@ -1,4 +1,4 @@
-const VERSION = "0.21"
+const VERSION = "0.22"
 
 document.getElementById("game-title").textContent = `Arkivia v${VERSION}`
 
@@ -263,7 +263,16 @@ const enemyData = {
         "attackExecute": function() {
             insertLog(colorGen("#bb7777", "You aren't supposed to get this far..."))
         }
-    }
+    },
+    "bat": {
+        "name": "Bat",
+        "health": [100, 150],
+        "str": [10, 15],
+        "def": [5, 8],
+        "spd": [20, 25],
+        "dex": [25, 30],
+        "xp": [10, 13]
+    },
 }
 const skillData = {
     "walking": {
@@ -342,6 +351,10 @@ const itemData = {
         "obtainExecute": function() {
             if (inventory['straw'] >= 25) {
                 discoverRecipe("strawPendant")
+                discoverRecipe("strawHelmet")
+                discoverRecipe("strawChestplate")
+                discoverRecipe("strawBracers")
+                discoverRecipe("strawLeggings")
             }
         }
     },
@@ -526,6 +539,78 @@ const itemData = {
         "class": "misc",
         "weight": 100
     },
+    "strawHelmet": {
+        "name": "Straw Helmet",
+        "desc": "A basic helmet made out of straw",
+        "class": "gear",
+        "weight": 25,
+        "durability": [150, 250],
+        "stackable": false,
+        "combat": {
+            "class": "head",
+            "armor": [1.8, 2.2]
+        },
+        "crafting": {
+            "complexity": 90,
+            "materials": {
+                "straw": 50
+            }
+        }
+    },
+    "strawChestplate": {
+        "name": "Straw Chestplate",
+        "desc": "A basic chestplate made out of straw",
+        "class": "gear",
+        "weight": 50,
+        "durability": [300, 500],
+        "stackable": false,
+        "combat": {
+            "class": "chest",
+            "armor": [1.8, 2.2]
+        },
+        "crafting": {
+            "complexity": 90,
+            "materials": {
+                "straw": 100
+            }
+        }
+    },
+    "strawBracers": {
+        "name": "Straw Bracers",
+        "desc": "Basic bracers made out of straw",
+        "class": "gear",
+        "weight": 25,
+        "durability": [150, 250],
+        "stackable": false,
+        "combat": {
+            "class": "arms",
+            "armor": [1.8, 2.2]
+        },
+        "crafting": {
+            "complexity": 90,
+            "materials": {
+                "straw": 50
+            }
+        }
+    },
+    "strawLeggings": {
+        "name": "Straw Leggings",
+        "desc": "Basic leggings made out of straw",
+        "class": "gear",
+        "weight": 25,
+        "durability": [150, 250],
+        "stackable": false,
+        "combat": {
+            "class": "legs",
+            "armor": [1.8, 2.2]
+        },
+        "crafting": {
+            "complexity": 90,
+            "materials": {
+                "straw": 50
+            }
+        }
+    }
 }
 const effectData = {
     "sleepDeprived": {
@@ -726,10 +811,11 @@ function formatTime(time, timeOnly=false) {
     const baseDate = minutesToDate(time)
 
     const dayName = getDayName(baseDate)
+    const timeName = getTimeName(time)
 
     const year = baseDate.getFullYear()
     const month = String(baseDate.getMonth() + 1).padStart(2, "0")
-    const date = String(baseDate.getDate()).padStart(2, "0")
+    const day = String(baseDate.getDate()).padStart(2, "0")
 
     const hours = String(baseDate.getHours()).padStart(2, "0")
     const minutes = String(baseDate.getMinutes()).padStart(2, "0")
@@ -738,14 +824,27 @@ function formatTime(time, timeOnly=false) {
     if (timeOnly) {
         return timeString
     }
-    return `${dayName} ${year}/${month}/${date} ${timeString}`
+    if (settings['dateFormat'] == null) {
+        return `${dayName} ${capitaliseFirst(timeName)} ${year}/${month}/${day} ${timeString}`
+    } else {
+        return formatString(settings['dateFormat'], {
+            "dayName": dayName,
+            "shortDayName": dayName.slice(0, 3),
+            "timeName": capitaliseFirst(timeName),
+            "year": year,
+            "month": month,
+            "day": day,
+            "hours": hours,
+            "minutes": minutes
+        })
+    }
 }
 
 function getDay(timeNow=time) {
     return Math.ceil((timeNow + 1) / 1440)
 }
 
-function xpToLevel(xp, decimals = false, r=1.1) {
+function xpToLevel(xp, decimals=false, r=1.1) {
     let n = Math.log((xp * (r - 1)) / 50 + 1) / Math.log(r)
     return decimals ? n : Math.floor(n)
 }
@@ -999,7 +1098,7 @@ function updateLevelText(currentXp=xp) {
 
 function updateBar(bar, change=null) {
     if (bar == "health") {
-        document.getElementById("healthbar-text").textContent = `HP: ${formatNumber(health, true)}/${formatNumber(calcMaxHp(), true)}`
+        document.getElementById("healthbar-text").textContent = `HP: ${formatNumber(health, "round")}/${formatNumber(calcMaxHp(), "round")}`
         document.getElementById("healthbar-fill").style.width = `${health / calcMaxHp() * 100}%`
         if (change != null) {
             document.getElementById("healthbar-fill-damage").style.left = `${health / calcMaxHp() * 100}%`
@@ -1011,11 +1110,11 @@ function updateBar(bar, change=null) {
         document.getElementById("energy-bar-text").textContent = `Energy: ${Math.round(energy)}/100`
         document.getElementById("energy-bar-fill").style.width = `${energy / 100 * 100}%`
     } else if (bar == "xp") {
-        document.getElementById("xp-bar-text").textContent = `XP: ${formatNumber(xpIntoLevel(xp), true)}/${formatNumber(xpForLevel(xpToLevel(xp)), true)}`
+        document.getElementById("xp-bar-text").textContent = `XP: ${formatNumber(xpIntoLevel(xp), "round")}/${formatNumber(xpForLevel(xpToLevel(xp)), "round")}`
         document.getElementById("xp-bar-fill").style.width = `${xpIntoLevel(xp) / xpForLevel(xpToLevel(xp)) * 100}%`
         updateLevelText(xp)
     } else if (bar == "enemyHealth") {
-        document.getElementById("enemy-healthbar-text").textContent = `HP: ${formatNumber(combatData['enemyHealth'], true)}/${formatNumber(combatData['enemyMaxHealth'], true)}`
+        document.getElementById("enemy-healthbar-text").textContent = `HP: ${formatNumber(combatData['enemyHealth'], "round")}/${formatNumber(combatData['enemyMaxHealth'], "round")}`
         document.getElementById("enemy-healthbar-fill").style.width = `${combatData['enemyHealth'] / combatData['enemyMaxHealth'] * 100}%`
         if (change != null) {
             document.getElementById("enemy-healthbar-fill-damage").style.left = `${combatData['enemyHealth'] / combatData['enemyMaxHealth'] * 100}%`
@@ -1035,7 +1134,7 @@ function updateBattlestats(statName=null) {
         if (statName == null || stat == statName) {
             const effectiveStat = value * calcStatModifier(stat)
             const modifierPercentage = effectiveStat / value * 100 - 100
-            document.getElementById(`stat-${stat}`).textContent = `${capitaliseFirst(stat)}: ${formatNumber(value)}${Math.round(modifierPercentage) != 0 ? ` (${(modifierPercentage > 0 ? "+" : "") + modifierPercentage.toFixed(0)}%)` : ""}`
+            document.getElementById(`stat-${stat}`).textContent = `${capitaliseFirst(stat)}: ${formatNumber(value, "floor")}${Math.round(modifierPercentage) != 0 ? ` (${(modifierPercentage > 0 ? "+" : "") + modifierPercentage.toFixed(0)}%)` : ""}`
         }
     }
     document.getElementById(`stat-total`).textContent = `Ttl: ${formatNumber(getTotalBattlestats())}`
@@ -1083,7 +1182,7 @@ document.getElementById("log").addEventListener("scroll", function() {
 })
 
 var logIncrement = 0
-function insertLog(content, tooltip=null, id=null) {
+function insertLog(content, tooltip=null, id=null, type=null) {
     let div
     if (id != null && id == logIncrement - 1 && document.getElementById(`log-${id}`)) {
         div = document.getElementById(`log-${id}`)
@@ -1114,7 +1213,7 @@ function insertLog(content, tooltip=null, id=null) {
 
     if (logAutoScroll) {document.getElementById("log").scrollTop = document.getElementById("log").scrollHeight}
 
-    if (itemLogStackData['id'] != null && id == null) {
+    if (itemLogStackData['id'] != null && (id == null || type == "training")) {
         itemLogStackData = {"id": null, "item": null, "amount": null, "type": null}
     }
     return logIncrement - 1
@@ -1207,7 +1306,7 @@ function killEnemy() {
 
     if (enemyData[combatData['enemy']]['loot'] != undefined) {
         for (const drop of enemyData[combatData['enemy']]['loot']) {
-            changeInventory(drop['item'], getRandomLoot(drop['chances']))
+            changeInventory(drop['item'], getRandomItem(drop['chances']))
         }
     }
 
@@ -1258,6 +1357,17 @@ function calcHitChance(speed, dexterity) {
     return 0
 }
 
+function calcArmorMitigation(damage, armor) {
+    if (damage <= 0) {return 0.75}
+    if (armor <= 0) {return 0}
+
+    const limited = Math.min(Math.log10(armor + 4) / 2, 1)
+    const effectiveArmor = (damage * Math.sqrt(armor / damage)) * (0.25 + 0.75 * limited)
+    const mitigation = effectiveArmor / (effectiveArmor + damage)
+
+    return Math.min(mitigation, 0.2 + Math.min(Math.log10(armor + 4) / 3, 1) * 0.55)
+}
+
 function changeSkill(skill, skillXp) {
     const scaling = skillData[skill]['scaling']
     const currentLevel = xpToLevel(skills[skill] || 0, false, scaling)
@@ -1276,7 +1386,7 @@ function changeSkill(skill, skillXp) {
 
         const skillbarText = document.createElement("div")
         skillbarText.className = "skillbar-text"
-        skillbarText.textContent = `${skillData[skill]['shortName'] || skillData[skill]['name']} ${xpToLevel(skills[skill], false, scaling)}: ${formatNumber(xpIntoLevel(skills[skill], scaling), true)}/${formatNumber(xpForLevel(xpToLevel(skills[skill], false, scaling), scaling), true)}`
+        skillbarText.textContent = `${skillData[skill]['shortName'] || skillData[skill]['name']} ${xpToLevel(skills[skill], false, scaling)}: ${formatNumber(xpIntoLevel(skills[skill], scaling), "round")}/${formatNumber(xpForLevel(xpToLevel(skills[skill], false, scaling), scaling), "round")}`
 
         skillbarParent.appendChild(skillbarFill)
         skillbarParent.appendChild(skillbarText)
@@ -1289,7 +1399,7 @@ function changeSkill(skill, skillXp) {
         skillbarFill.style.width = `${xpIntoLevel(skills[skill], scaling) / xpForLevel(xpToLevel(skills[skill], false, scaling), scaling) * 100}%`
 
         const skillbarText = document.getElementById(`skill-${skill}`).getElementsByClassName("skillbar-text")[0]
-        skillbarText.textContent = `${skillData[skill]['shortName'] || skillData[skill]['name']} ${xpToLevel(skills[skill], false, scaling)}: ${formatNumber(xpIntoLevel(skills[skill], scaling), true)}/${formatNumber(xpForLevel(xpToLevel(skills[skill], false, scaling), scaling), true)}`
+        skillbarText.textContent = `${skillData[skill]['shortName'] || skillData[skill]['name']} ${xpToLevel(skills[skill], false, scaling)}: ${formatNumber(xpIntoLevel(skills[skill], scaling), "round")}/${formatNumber(xpForLevel(xpToLevel(skills[skill], false, scaling), scaling), "round")}`
     }
 
     if (currentLevel < xpToLevel(skills[skill], false, scaling)) {
@@ -1317,10 +1427,15 @@ function formatNumber(num, round=false, lowPrecision=false) {
     } else {
         decimals = value < 1 ? 2 : value < 10 ? 1 : 0
     }
-    if (round == false || num >= 1000) {
-        return sign + Number(value.toFixed(decimals).replace(/\.0+$/, "")) + units[exp]
+    
+    if (round == "floor") {
+        const factor = 10 ** decimals
+        const floored = Math.floor(value * factor) / factor
+        return sign + floored.toFixed(decimals).replace(/\.0+$/, "") + units[exp]
+    } else if (round == "round") {
+        return sign + Number(value.toFixed().replace(/\.0+$/, "")) + units[exp]
     } else {
-        return sign + value.toFixed()
+        return sign + Number(value.toFixed(decimals).replace(/\.0+$/, "")) + units[exp]
     }
 }
 
@@ -1332,7 +1447,7 @@ function englishifyNumber(n) {
     return deca[Math.floor(n / 10) - 2] + "y-" + special[ n% 10]
 }
 
-function formatString(string, values) { // For future use
+function formatString(string, values) {
     return string.replace(/\$\{(\w+)\}/g, (_, key) => values[key])
 }
 
@@ -1344,7 +1459,7 @@ function getMovementSpeed() {
     return (50 + getSkillLevel("walking") * 3) * inventoryMulti * calcEnergyDebuff()
 }
 
-function getRandomLoot(weightedDict) {
+function getRandomItem(weightedDict) {
     const totalWeight = Object.values(weightedDict).reduce((sum, weight) => sum + weight, 0)
     
     let randomNum = Math.random() * totalWeight
@@ -1430,6 +1545,9 @@ function changeInventory(item, amount, announceReduction=false, itemId=null, new
                     }
                     if (itemCombatData['class'] == "weapon") {
                         newItemData['damage'] = randomRange(itemCombatData['damage'][0], itemCombatData['damage'][1], 2)
+                    }
+                    if (itemCombatData['armor']) {
+                        newItemData['armor'] = randomRange(itemCombatData['armor'][0], itemCombatData['armor'][1], 2)
                     }
                 }
             }
@@ -1765,11 +1883,9 @@ function changeWeather(newWeather) {
 
 function updateWeather(multi=1) {
     const weatherState = weatherData[weather]
-    if (time - weatherStartTime < weatherState['minTime']) {
-        if (weatherState['terminate'] && weatherState['terminate']()) {
-            changeWeather(getRandomWeather(weatherState['changes'], 0))
-        }
-    } else {
+    if (weatherState['terminate'] && weatherState['terminate']()) {
+        changeWeather(getRandomWeather(weatherState['changes'], 0))
+    } else if (time - weatherStartTime >= weatherState['minTime']) {
         const newWeather = getRandomWeather(weatherState['changes'], multi)
         if (newWeather != "noChange") {
             changeWeather(newWeather)
@@ -2052,7 +2168,11 @@ function changeHp(amount) {
             arenaData = {}
         }
         playTransition()
-        sceneManager("sleep")
+        if (region == "forest") {
+            sceneManager("huntersGuildHeal")
+        } else {
+            sceneManager("sleep")
+        }
         insertLog(colorGen("#ff0000", "You died!"))
         health = 1
         insertLog(colorGen("#bb4444", `${(-energy / 2).toFixed(0)} Energy`))
@@ -2212,7 +2332,7 @@ function giveQuest(questName, complete=false) {
                 goalProgress.id = `quest-${questName}-${stat}`
                 if (complete == false) {
                     goalProgress.style.color = data['completion'] < data['amount'] ? "#ff0000" : "#00ff00"
-                    goalProgress.textContent = `${formatNumber(data['completion'])}/${data['amount']}`
+                    goalProgress.textContent = `${formatNumber(data['completion'], "floor")}/${data['amount']}`
                 } else {
                     goalProgress.style.color = "#00ff00"
                     goalProgress.textContent = `${formatNumber(data['amount'])}/${data['amount']}`
@@ -2263,7 +2383,7 @@ function changeQuestProgress(type, stat, value) {
                 }
             }
             const goalElem = document.getElementById(`quest-${quest}-${stat}`)
-            goalElem.textContent = `${formatNumber(newValue)}/${questStatData['amount']}`
+            goalElem.textContent = `${formatNumber(newValue, "floor")}/${questStatData['amount']}`
             if (newValue >= questStatData['amount']) {
                 goalElem.style.color = "#00ff00"
                 checkCompletion(quest)
@@ -2294,7 +2414,7 @@ function trainingAreaHandler(stat, gymName="none") {
         trainingSession['gain'] = 0
     }
     trainingSession['gain'] += gain
-    trainingSession['logId'] = insertLog(`+${formatNumber(trainingSession['gain'])} (+${formatNumber(gain)}/s) ${stat.replace("str", "Strength").replace("def", "Defense").replace("spd", "Speed").replace("dex", "Dexterity")}`, null, trainingSession['logId'])
+    trainingSession['logId'] = insertLog(`+${formatNumber(trainingSession['gain'])} (+${formatNumber(gain)}/s) ${stat.replace("str", "Strength").replace("def", "Defense").replace("spd", "Speed").replace("dex", "Dexterity")}`, null, trainingSession['logId'], "training")
     if (document.visibilityState == "hidden") {
         document.title = `Arkivia | ${capitaliseFirst(stat)} +${formatNumber(trainingSession['gain'], false, true)} (+${formatNumber(gain, false, true)}/s)`
     }
@@ -2437,6 +2557,57 @@ function generateShop(shopName) {
     })
 }
 
+function beginCrafting(item) {
+    if (item != null) {
+        let nonstackablesRequired = {}
+        let nonstackableCounts = {}
+        for (const item of Object.values(inventoryNonStackable)) {
+            nonstackableCounts[item['name']] = (nonstackableCounts[item['name']] ?? 0) + 1
+        }
+
+        for (const [craftingItem, amount] of Object.entries(itemData[item]['crafting']['materials'])) {
+            if (itemData[craftingItem]['stackable'] !== false) {
+                if (inventory[craftingItem] < amount || inventory[craftingItem] == undefined) {
+                    insertLog(colorGen("#aaaaaa", "Missing materials"))
+                    return false
+                }
+            } else {
+                if (nonstackableCounts[craftingItem] < amount || nonstackableCounts[craftingItem] == undefined) {
+                    insertLog(colorGen("#aaaaaa", "Missing materials"))
+                    return false
+                }
+                if (amount >= 1) {
+                    nonstackablesRequired[craftingItem] = amount
+                }
+            }
+        }
+
+        if (Object.keys(nonstackablesRequired).length == 0) {
+            let craftingType = itemData[item]['crafting']['type']
+            let arrival
+            if (craftingType == undefined) {
+                arrival = Math.ceil(time + itemData[item]['crafting']['complexity'] / getCraftingSpeed())
+            } else if (craftingType == "alchemy") {
+                arrival = Math.ceil(time + itemData[item]['crafting']['complexity'] / getAlchemySpeed())
+            }
+            craftInfo['completed'] = 0
+            craftInfo['goal'] = itemData[item]['crafting']['complexity']
+            craftInfo['recipe'] = item
+            sceneManager("empty")
+            processText(`You are crafting "${itemData[item]['name']}". You'll finish at ${colorGen("#ccccff", formatTime(arrival, true))}\n\n{Cancel|table|0|cancelCrafting}`)
+            playTransition()
+        } else {
+            sceneManager("empty")
+            let outputString = Object.entries(nonstackablesRequired).map(([item, amount]) => `- x${amount} ${itemData[item]['name']}`).join("\n")
+            processText(`Choose\n${outputString}\nfrom your inventory\n\n{Cancel|table|0|cancelCrafting}`)
+            craftingSelection = true
+            craftInfo['required'] = nonstackablesRequired
+            craftInfo['selected'] = item
+            playTransition()
+        }
+    }
+}
+
 function generateCraftingMenu() {
     const craftingHolder = document.createElement("div")
     craftingHolder.className = "crafting-holder"
@@ -2487,7 +2658,7 @@ function generateCraftingMenu() {
             if (amount >= 1) {
                 materialElement.textContent = `x${amount} ${itemData[craftingItem]['name']}`
             } else {
-                materialElement.textContent = `${itemData[craftingItem]['name']} Required`
+                materialElement.textContent = itemData[craftingItem]['name']
             }
             if (inventory[craftingItem] >= amount || nonstackableCounts[craftingItem] >= amount) {
                 materialElement.style.color = "#aaffaa"
@@ -2514,49 +2685,7 @@ function generateCraftingMenu() {
 
     craftingHolder.addEventListener("click", function(e) {
         let item = e.target.closest("[id^=\"crafting-item-\"]")?.id?.replace("crafting-item-", "")
-        if (item != null) {
-            let nonstackablesRequired = {}
-            for (const [craftingItem, amount] of Object.entries(itemData[item]['crafting']['materials'])) {
-                if (itemData[craftingItem]['stackable'] !== false) {
-                    if (inventory[craftingItem] < amount || inventory[craftingItem] == undefined) {
-                        insertLog(colorGen("#aaaaaa", "Missing materials"))
-                        return
-                    }
-                } else {
-                    if (nonstackableCounts[craftingItem] < amount || nonstackableCounts[craftingItem] == undefined) {
-                        insertLog(colorGen("#aaaaaa", "Missing materials"))
-                        return
-                    }
-                    if (amount >= 1) {
-                        nonstackablesRequired[craftingItem] = amount
-                    }
-                }
-            }
-
-            let outputString = Object.entries(nonstackablesRequired).map(([item, amount]) => `- x${amount} ${itemData[item]['name']}`).join("\n")
-            if (Object.keys(nonstackablesRequired).length == 0) {
-                let craftingType = itemData[item]['crafting']['type']
-                let arrival
-                if (craftingType == undefined) {
-                    arrival = Math.ceil(time + itemData[item]['crafting']['complexity'] / getCraftingSpeed())
-                } else if (craftingType == "alchemy") {
-                    arrival = Math.ceil(time + itemData[item]['crafting']['complexity'] / getAlchemySpeed())
-                }
-                craftInfo['completed'] = 0
-                craftInfo['goal'] = itemData[item]['crafting']['complexity']
-                craftInfo['recipe'] = item
-                sceneManager("empty")
-                processText(`You are crafting "${itemData[item]['name']}". You'll finish at ${colorGen("#ccccff", formatTime(arrival, true))}\n\n{Cancel|table|0|cancelCrafting}`)
-                playTransition()
-            } else {
-                sceneManager("empty")
-                processText(`Choose\n${outputString}\nfrom your inventory\n\n{Cancel|table|0|cancelCrafting}`)
-                craftingSelection = true
-                craftInfo['required'] = nonstackablesRequired
-                craftInfo['selected'] = item
-                playTransition()
-            }
-        }
+        beginCrafting(item)
     })
 }
 
@@ -2582,7 +2711,11 @@ function getExploreSpeed() {
 }
 
 function getEquipmentStats(type) {
-    return inventoryNonStackable[equipment[type][1]]
+    if (equipment[type]) {
+        return inventoryNonStackable[equipment[type][1]]
+    } else {
+        return null
+    }
 }
 
 function changeTitleXp(selectedTitle, amount) {
@@ -2664,7 +2797,7 @@ const sceneTicks = new Map([
         changeTitleXp("sleeper", 1)
     }],
     ["hospital", function() {
-        changeHp(2)
+        changeHp(Math.round(Math.max(calcMaxHp(xpToLevel(xp)) / 30, 2)))
     }],
     ["alley", function() {
         if (!quests['dojoIntro3'] && !completedQuests.includes("dojoIntro3")) {
@@ -2692,7 +2825,7 @@ const sceneTicks = new Map([
         }
     }],
     ["theArenaMedbay", function() {
-        changeHp(2)
+        changeHp(Math.round(Math.max(calcMaxHp(xpToLevel(xp)) / 30, 2)))
         if (time >= arenaData['endTime']) {
             delete arenaData['endTime']
             playTransition()
@@ -2714,17 +2847,19 @@ const sceneTicks = new Map([
     ["forestLayer1Clear", function() {
         if (combatData['enemy'] == null) {
             const rng = Math.random()
-            if (rng < 0.45) {
-                generateEnemy("lizard")
-            } else if (rng < 0.9) {
-                generateEnemy("spider")
-            } else {
-                generateEnemy("venomousSpider")
-            }
+            if (rng < 0.3 && getTimeName() == "night") {generateEnemy("bat")}
+            else if (rng < 0.45) {generateEnemy("lizard")}
+            else if (rng < 0.9) {generateEnemy("spider")}
+            else {generateEnemy("venomousSpider")}
 
             combatData['onDeath'] = "forestLayer1Death"
         }
-    }]
+    }],
+    ["huntersGuildHeal", function() {
+        if (health < calcMaxHp(xpToLevel(xp)) / 3) {
+            changeHp(Math.round(Math.max(calcMaxHp(xpToLevel(xp)) / 30, 2)))
+        }
+    }],
 ])
 
 const effectFunctions = new Map([
@@ -2738,7 +2873,7 @@ const effectFunctions = new Map([
     }],
     ["poison", function(time) {
         effects['poison']['properties']['dmg'] *= effects['poison']['properties']['change']
-        insertLog(`You -> ${colorGen("#ff3333", formatNumber(effects['poison']['properties']['dmg'], true))} ${colorGen(effectData['poison']['color'], "(Poison)")}`)
+        insertLog(`You -> ${colorGen("#ff3333", formatNumber(effects['poison']['properties']['dmg'], "round"))} ${colorGen(effectData['poison']['color'], "(Poison)")}`)
         changeHp(-effects['poison']['properties']['dmg'])
     }]
 ])
@@ -2808,13 +2943,20 @@ function tick() {
             }
 
             changeInventory(craftInfo['recipe'], 1)
+            const storedRecipe = craftInfo['recipe']
             craftInfo['recipe'] = null
             craftInfo['completed'] = 0
             craftInfo['goal'] = 0
             craftInfo['using'] = []
             craftInfo['skillXp'] = 0
             giveAchievement("crafter")
-            sceneManager("table")
+            if (!settings['autoRepeatCrafting']) {
+                sceneManager("table")
+            } else {
+                if (beginCrafting(storedRecipe) == false) {
+                    sceneManager("table")
+                }
+            }
         }
     }
 
@@ -2829,7 +2971,7 @@ function tick() {
         if (exploreData['completed'] >= exploreData['goal']) {
             exploreData['completed'] = 0
             exploreData['goal'] = randomRange(explorePools[currentScene]['difficulty'][0], explorePools[currentScene]['difficulty'][1], 0)
-            changeInventory(getRandomLoot(explorePools[currentScene]['loot']), 1)
+            changeInventory(getRandomItem(explorePools[currentScene]['loot']), 1)
         }
     }
 
@@ -2852,6 +2994,7 @@ function tick() {
         }
 
         if (combatData['enemyHealth'] > 0) {
+            changeEnergy(-0.05)
             const effectiveStats = {}
             for (const [stat, value] of Object.entries(battleStats)) {
                 effectiveStats[stat] = value * calcStatModifier(stat)
@@ -2861,13 +3004,15 @@ function tick() {
                 enemyStats[stat] = value * calcEnemyStatDebuff(stat)
             }
 
-            let turnDmg = getBaseDamage(effectiveStats['str']) * (Math.random() * 0.4 + 0.8)
-            turnDmg = turnDmg * (1 + getSkillLevel("fighting") * 0.05)
+            let turnDmg = getBaseDamage(effectiveStats['str']) * (Math.random() * 0.4 + 0.8) * (getEquipmentStats("weapon") != null ? getEquipmentStats("weapon")['damage'] : 1)
+            let turnDmgMulti = 1
+            turnDmgMulti += getSkillLevel("fighting") * 0.05
             if (equipment['weapon']) {
-                turnDmg = turnDmg * getEquipmentStats("weapon")['damage'] * (1 + getSkillLevel(`${itemData[equipment['weapon'][0]]['subclass']}Mastery`) * 0.03)
+                turnDmgMulti += getSkillLevel(`${itemData[equipment['weapon'][0]]['subclass']}Mastery`) * 0.03
             } else {
-                turnDmg = turnDmg * (1 + getSkillLevel("unarmedMastery") * 0.03)
+                turnDmgMulti += getSkillLevel("unarmedMastery") * 0.03
             }
+            turnDmg = turnDmg * turnDmgMulti
 
             const turnDmgMitigation = calcDamageMitigation(effectiveStats['str'], enemyStats['def'])
             const turnHitChance = calcHitChance(effectiveStats['spd'], enemyStats['dex'])
@@ -2927,8 +3072,15 @@ function tick() {
 
                     const turnDmgMitigation = calcDamageMitigation(enemyStats['str'], effectiveStats['def'])
                     const turnHitChance = calcHitChance(enemyStats['spd'], effectiveStats['dex'])
-                    
-                    const turnActualDmg = Math.round(turnDmg * (1 - turnDmgMitigation))
+                    const hitPart = getRandomItem({
+                        "head": 2,
+                        "chest": 3,
+                        "arms": 2,
+                        "legs": 1
+                    })
+                    const hitArmor = getEquipmentStats(hitPart)
+                    const turnArmorMitigation = hitArmor != null ? calcArmorMitigation(turnDmg, hitArmor['armor']) : 0
+                    const turnActualDmg = Math.round(turnDmg * (1 - turnDmgMitigation) * (1 - turnArmorMitigation))
 
                     if (turnHitChance / 100 > Math.random()) {
                         insertLog(`${enemyData[combatData['enemy']]['name']} -> ${colorGen("#ff3333", turnActualDmg)}`)
@@ -2939,6 +3091,17 @@ function tick() {
                             enemyData[combatData['enemy']]['attackExecute'](turnActualDmg)
                         }
                         changeHp(-turnActualDmg)
+                        if (equipment[hitPart]) {
+                            const item = equipment[hitPart][0]
+                            const itemId = equipment[hitPart][1]
+                            getEquipmentStats(hitPart)['durability'] -= 1
+                            document.getElementById(`equipment-${hitPart}`).querySelector(".bar-fill").style.width = `${getEquipmentStats(hitPart)['durability'] / getEquipmentStats(hitPart)['maxDurability'] * 100}%`
+                            if (getEquipmentStats(hitPart)['durability'] <= 0) {
+                                insertLog(`${genItemLogText(item, null)} broke`, [itemData[item]['name'], itemData[item]['desc']])
+                                changeEquipment(itemId)
+                                changeInventory(item, -1, false, itemId)
+                            }
+                        }
                     } else {
                         insertLog(colorGen("#aaaaaa", `${enemyData[combatData['enemy']]['name']} missed`))
                     }
@@ -2950,7 +3113,7 @@ function tick() {
         }
 
         if (document.visibilityState == "hidden" && combatData['enemy'] != null) {
-            document.title = `Arkivia | L${xpToLevel(xp)} (${Math.floor(xpIntoLevel(xp) / xpForLevel(xpToLevel(xp)) * 100)}%) ${formatNumber(health, true)}hp`
+            document.title = `Arkivia | L${xpToLevel(xp)} (${Math.floor(xpIntoLevel(xp) / xpForLevel(xpToLevel(xp)) * 100)}%) ${formatNumber(health, "round")}hp`
         }
     }
 
@@ -3032,6 +3195,7 @@ function updateTooltip() {
             if (tooltipItemData != undefined) {
                 if (tooltipItemData['damage']) {tooltipText += `<hr>Dmg: ${colorGen("#ff0000", tooltipItemData['damage'])}`}
                 if (tooltipItemData['durability']) {tooltipText += `\nDurability: ${colorGen("#ffff00", tooltipItemData['durability'])}`}
+                if (tooltipItemData['armor']) {tooltipText += `\nArmor: ${colorGen("#00ffff", tooltipItemData['armor'])}`}
             }
         } else if (tooltipSpecial == "stat") {
             const stat = activeTarget.id.replace("stat-", "")
@@ -3361,6 +3525,7 @@ const sceneRegions = {
     "grassPlains": "wilderness",
     "forestLayer1": "forest",
     "huntersGuild": "forest",
+    "huntersGuildHeal": "forest",
     "forestLayer2": "forest",
 }
 
@@ -3853,6 +4018,13 @@ class scenes {
         return `"Quests?"\n\n"I could probably give you a few quests to collect resources, obviously you'll be paid for them. Talk to me again if you're interested."\n\n{![leave.png]Return|huntersGuildEls}`
     }
 
+    static huntersGuildHeal() {
+        let r = `You are in a room located in the hunters' guild.\n\n"Our resources are a bit limited here so we're unable to heal you completely. Head back to the hospital in town when you're ready."\n\n`
+        if (getTimeName() == "night") {r += `Right before Els walks out of the room, he says, "Reminder that the forest is more dangerous at night"\n\n`}
+        r += `{![leave.png]Return|huntersGuild}`
+        return r
+    }
+
     static forestLayer2() {
         return `You can see the entrance of the forest in the distance.\n\n{![arrow_left.png]Walk towards the exit|forestLayer1|300(Forest Entrance)}`
     }
@@ -3874,13 +4046,15 @@ class sceneFunctions {
 
     static cancelCrafting() {
         craftingSelection = false
-        let craftingType = itemData[craftInfo['recipe']]['crafting']['type']
-        if (craftingType == undefined) {
-            changeSkill("crafting", -craftInfo['skillXp'])
-            changeTitleXp("crafter", -craftInfo['skillXp'] * 2)
-        } else if (craftingType == "alchemy") {
-            changeSkill("alchemy", -craftInfo['skillXp'])
-            changeTitleXp("alchemist", -craftInfo['skillXp'] * 2)
+        if (craftInfo['recipe']) {
+            let craftingType = itemData[craftInfo['recipe']]['crafting']['type']
+            if (craftingType == undefined) {
+                changeSkill("crafting", -craftInfo['skillXp'])
+                changeTitleXp("crafter", -craftInfo['skillXp'] * 2)
+            } else if (craftingType == "alchemy") {
+                changeSkill("alchemy", -craftInfo['skillXp'])
+                changeTitleXp("alchemist", -craftInfo['skillXp'] * 2)
+            }
         }
         craftInfo['recipe'] = null
         craftInfo['completed'] = 0
@@ -4097,6 +4271,16 @@ const settingsData = {
                 delete eventListenerStorage['keyboardNavigation']
             }
         }
+    },
+    "autoRepeatCrafting": {
+        "type": "toggle",
+        "text": "Auto Repeat Crafting",
+        "default": false
+    },
+    "dateFormat": {
+        "type": "text",
+        "text": "Date Format",
+        "default": "${dayName} ${timeName} ${year}/${month}/${day} ${hours}:${minutes}"
     }
 }
 const settingsCategories = {
@@ -4104,13 +4288,21 @@ const settingsCategories = {
         "name": "Interface",
         "settings": [
             "sceneTransitions",
-            "sceneImages"
+            "sceneImages",
+            "",
+            "dateFormat"
         ]
     },
     "accessibility": {
         "name": "Accessibility",
         "settings": [
             "keyboardNavigation"
+        ]
+    },
+    "gameplay": {
+        "name": "Gameplay",
+        "settings": [
+            "autoRepeatCrafting"
         ]
     }
 }
@@ -4145,11 +4337,15 @@ document.getElementById("settings-button").addEventListener("click", function() 
                 settingsOptionsElem.appendChild(settingsOptionsTitle)
 
                 for (const option of data['settings']) {
+                    if (option === "") {
+                        settingsOptionsElem.appendChild(document.createElement("br"))
+                        continue
+                    }
+                    
                     const values = settingsData[option]
+                    const holder = document.createElement("div")
+                    holder.className = "settings-option-holder"
                     if (values['type'] == "toggle") {
-                        const holder = document.createElement("div")
-                        holder.className = "settings-option-holder"
-                        
                         const toggle = document.createElement("input")
                         toggle.type = "checkbox"
                         toggle.className = "settings-option-checkbox"
@@ -4172,10 +4368,37 @@ document.getElementById("settings-button").addEventListener("click", function() 
                         const text = document.createElement("span")
                         text.textContent = values['text']
                         holder.appendChild(text)
+                    } else if (values['type'] == "text") {
+                        const text = document.createElement("span")
+                        text.textContent = values['text']
+                        holder.appendChild(text)
 
+                        
+                        const textInput = document.createElement("input")
+                        textInput.type = "text"
+                        textInput.className = "settings-option-text-input"
+                        textInput.value = settings[option] != undefined ? settings[option] : values['default'] || false
 
-                        settingsOptionsElem.appendChild(holder)                        
+                        function finish(mode) {
+                            if (textInput.value != values['default']) {
+                                settings[option] = textInput.value
+                            } else {
+                                delete settings[option]
+                            }
+
+                            if (mode == "key") {textInput.blur()}
+
+                            saveToLocal(settings, "arkivia-settings")
+                        }
+
+                        textInput.addEventListener("keydown", function(e) {
+                            if (e.key == "Enter") {textInput.blur()}
+                        })
+                        textInput.addEventListener("blur", finish)
+
+                        holder.appendChild(textInput)
                     }
+                    settingsOptionsElem.appendChild(holder)   
                 }
             })
 
@@ -4270,7 +4493,7 @@ function makeSave() { // Optimisation at all costs
     return base
 }
 
-function saveToLocal(dict, slot="save1") {
+function saveToLocal(dict, slot="arkivia-save1") {
     const msgpackData = MessagePack.encode(dict)
     const packed = LZString.compressToBase64(String.fromCharCode.apply(null, msgpackData))
     localStorage.setItem(slot, packed)
@@ -4302,8 +4525,8 @@ async function importDict() {
     return dict
 }
 
-function loadFromLocal(slot="save1") {
-    const save = localStorage.getItem(slot)
+function loadFromLocal(slot="arkivia-save1") {
+    let save = localStorage.getItem(slot)
     if (!save) {return undefined}
     const decompressed = LZString.decompressFromBase64(save)
     const bytes = new Uint8Array(decompressed.split("").map(char => char.charCodeAt(0)))
@@ -4498,7 +4721,8 @@ document.getElementById("delete-save").addEventListener("click", function() {
     let confirm = prompt("THIS WILL DELETE YOUR SAVE. TYPE CONFIRM TO CONFIRM")
     if (confirm.toLowerCase() == "confirm") {
         saveEnabled = false
-        localStorage.removeItem("save1")
+        localStorage.removeItem("arkivia-save1")
+        localStorage.removeItem("save1") // Remove this later
         window.location.reload()
     } else if (confirm.toLowerCase() == "confirm to confirm") {
         alert(`I meant "confirm" not "confirm to confirm"`)
@@ -4511,19 +4735,21 @@ document.getElementById("export").addEventListener("click", function() {
 
 document.getElementById("import").addEventListener("click", function() {
     importDict().then(dict => {
-        saveToLocal(dict, "savetemp")
+        saveToLocal(dict, "arkivia-savetemp")
         window.location.reload()
     })
 })
-if (localStorage.getItem("savetemp") == undefined) {
-    if (localStorage.getItem("save1") == undefined) {
+if (localStorage.getItem("arkivia-savetemp") == undefined) {
+    if (localStorage.getItem("arkivia-save1") == undefined && localStorage.getItem("save1") == undefined) {
         sceneManager("intro1")
     } else {
-        loadSave(loadFromLocal())
+        let save = loadFromLocal()
+        if (save == undefined) {save = loadFromLocal("save1")}
+        loadSave(save)
     }
 } else {
-    loadSave(loadFromLocal("savetemp"))
-    localStorage.removeItem("savetemp")
+    loadSave(loadFromLocal("arkivia-savetemp"))
+    localStorage.removeItem("arkivia-savetemp")
 }
 
 window.addEventListener("beforeunload", function() {
