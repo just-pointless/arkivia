@@ -1,11 +1,44 @@
+/* This is probably a mess */
+:root {
+    --background: #222244;
+    --color: #ffffff;
+    --unfocused-color: #aaaaaa;
+    --foreground-background: #333333;
+    --foreground-background-dark: #282828;
+    --sidebar-background: var(--foreground-background);
+    --player-info-background: var(--foreground-background);
+    --log-background: var(--foreground-background);
+    --center-background: #222222;
+    --center-top-background: #332233;
+    --center-top-color: #ccccff;
+    --link: #518ae0;
+    --link-hover: #7da8e8;
+    --money: #cccc55;
+    --hover-background: #444444;
+    --menu-button-background: #444444;
+    --menu-button-background-hover: #555555;
+    --equipment-background: #333344;
+    --equipment-border: #444499;
+    --equipment-durability-background: #555577;
+    --skillbar-background: #bbbb44;
+    --healthbar-background: #44bb44;
+    --healthbar-damage-background: #ff4444;
+    --energy-bar-background: #bb4444;
+    --xp-bar-background: #4444bb;
+    --bottombar-background: #999999;
+    --background-background: #222222;
+    --tooltip-background: #111111;
+    --tooltip-color: #ffffff;
+}
+
 body {
-    background-color: #222244;
+    background-color: var(--background);
     margin: 0;
     font-family: monospace;
 }
 
 #center {
-    background-color: #222222;
+    background-color: var(--center-background);
     position: fixed;
     top: 20%;
     bottom: 20px;
@@ -17,12 +50,12 @@ body {
 
 #center-top {
     position: absolute;
-    background-color: #332233;
+    background-color: var(--center-top-background);
     top: 0;
     width: 100%;
     height: 30px;
     text-align: right;
-    color: #ccccff;
+    color: var(--center-top-color);
     font-size: 20px;
     line-height: 30px;
 }
@@ -36,7 +69,7 @@ body {
 }
 
 #main-transition {
-    background-color: #222222;
+    background-color: var(--center-background);
     opacity: 100%;
     transition: opacity 0.3s linear;
 }
@@ -45,10 +78,11 @@ body {
     display: inline;
     white-space: pre-line;
     font-size: 20px;
+    color: var(--color);
 }
 
 .main-link {
-    color: #518ae0;
+    color: var(--link);
     border: 0;
     background: none;
     padding: 0;
@@ -60,7 +94,7 @@ body {
 }
 
 .main-link:hover {
-    color: #7da8e8;
+    color: var(--link-hover);
 }
 
 img { 
@@ -68,7 +102,7 @@ img {
 }
 
 .shop-holder, #storage-table {
-    color: #ffffff;
+    color: var(--color);
     font-size: 16px;
     max-width: 350px;
     border: 1px solid #555555;
@@ -79,7 +113,7 @@ img {
 }
 
 .crafting-holder {
-    color: #ffffff;
+    color: var(--color);
     font-size: 16px;
     max-width: 300px;
     margin-top: 20px;
@@ -89,12 +123,12 @@ img {
 }
 
 #sidebar {
-    background-color: #333333;
+    background-color: var(--foreground-background);
     position: fixed;
     top: 20%;
     bottom: 20px;
     width: 300px;
-    color: #ffffff;
+    color: var(--color);
 }
 
 #inventory-table, #quests-table, #completed-quests-table, #achievements-table {
@@ -130,7 +164,7 @@ img {
     position: absolute;
     left: 0;
     bottom: 0;
-    color: #cccc55;
+    color: var(--money);
     font-size: 16px;
 }
 
@@ -175,16 +209,16 @@ img {
 .crafting-item-holder {
     height: 20px;
     border-bottom: 1px solid #555555;
-    background-color: #333333;
+    background-color: var(--foreground-background);
 }
 
 .crafting-item-requirements {
     font-size: 12px;
-    background-color: #282828;
+    background-color: var(--foreground-background-dark);
 }
 
 .item-parent:hover {
-    background-color: #444444;
+    background-color: var(--hover-background);
 }
 
 .crafting-type {
@@ -204,7 +238,7 @@ img {
 }
 
 .item-price {
-    color: #cccc55;
+    color: var(--money);
     margin-left: 20px;
 }
 
@@ -262,12 +296,12 @@ img {
 
 .achievement-desc {
     font-size: 12px;
-    color: #aaaaaa;
+    color: var(--unfocused-color);
 }
 
 .achievement-progress {
     font-size: 12px;
-    color: #aaaaaa;
+    color: var(--unfocused-color);
     text-align: right;
     margin-right: 4px;
 }
@@ -284,15 +318,15 @@ img {
 }
 
 .menu-button {
-    background-color: #444444;
+    background-color: var(--menu-button-background);
     border: 2px solid #777777;
-    color: #ffffff;
+    color: var(--color);
     font-family: monospace;
     cursor: pointer;
 }
 
 .menu-button:hover {
-    background-color: #555555;
+    background-color: var(--menu-button-background-hover);
 }
 
 .sidebar-menu {
@@ -319,7 +353,7 @@ img {
 
 #equipment-holder {
     position: absolute;
-    background-color: #333344;
+    background-color: var(--equipment-background);
     bottom: 0;
     height: fit-content;
     width: calc(100% - 10px);
@@ -330,12 +364,12 @@ img {
 
 .equipment-item-holder {
     position: relative;
-    border: 2px solid #444499;
+    border: 2px solid var(--equipment-border);
     height: 24px;
 }
 
 .bar-fill.equipment {
-    background-color: #555577;
+    background-color: var(--equipment-durability-background);
     width: 0;
 }
 
@@ -343,7 +377,7 @@ img {
     text-align: center;
     font-size: 16px;
     line-height: 24px;
-    color: #aaaaaa;
+    color: var(--unfocused-color);
     position: relative;
 }
 
@@ -394,16 +428,16 @@ img {
 }
 
 .skillbar-fill {
-    background-color: #bbbb44;
+    background-color: var(--skillbar-background);
 }
 
 #player-info {
-    background-color: #333333;
+    background-color: var(--foreground-background);
     position: fixed;
     top: 0;
     bottom: calc(80% + 5px);
     width: 500px;
-    color: #ffffff;
+    color: var(--color);
     font-size: 16px;
     line-height: 20px;
 }
@@ -430,21 +464,21 @@ img {
 }
 
 #healthbar-fill, #enemy-healthbar-fill {
-    background-color: #44bb44;
+    background-color: var(--healthbar-background);
 }
 
 #healthbar-fill-damage, #enemy-healthbar-fill-damage {
-    background-color: #ff4444;
+    background-color: var(--healthbar-damage-background);
     /* transition: width 0.3s linear;
     transition-delay: 0.5s; */
 }
 
 #energy-bar-fill {
-    background-color: #bb4444;
+    background-color: var(--energy-bar-background);
 }
 
 #xp-bar-fill {
-    background-color: #4444bb;
+    background-color: var(--xp-bar-background);
 }
 
 #effects-bar, #enemy-effects-bar {
@@ -477,7 +511,7 @@ img {
 }
 
 #bottombar {
-    background-color: #999999;
+    background-color: var(--bottombar-background);
     position: fixed;
     bottom: 0;
     width: 100%;
@@ -517,13 +551,13 @@ img {
 }
 
 #attack-info {
-    background-color: #222222;
+    background-color: var(--background-background);
     position: fixed;
     top: 0;
     bottom: calc(80% + 5px);
     left: 505px;
     right: 305px;
-    color: #ffffff;
+    color: var(--color);
     font-size: 16px;
     line-height: 20px;
 }
@@ -552,13 +586,13 @@ img {
 }
 
 #log {
-    background-color: #333333;
+    background-color: var(--foreground-background);
     position: fixed;
     top: 0;
     right: 0;
     bottom: 20px;
     width: 300px;
-    color: #ffffff;
+    color: var(--color);
     overflow-y: auto;
     scrollbar-color: #555555 #333333;
     scrollbar-width: thin;
@@ -577,9 +611,9 @@ img {
 #tooltip {
     position: fixed;
     pointer-events: none;
-    background: #111111;
+    background: var(--tooltip-background);
     border: 2px solid #999999;
-    color: white;
+    color: var(--tooltip-color);
     padding: 6px;
     border-radius: 6px;
     white-space: nowrap;
@@ -624,6 +658,10 @@ img {
     height: 100%;
     left: 220px;
     color: #ffffff;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-color: #555555 #333333;
+    scrollbar-width: thin;
 }
 
 .settings-options-title {
@@ -659,4 +697,8 @@ img {
     padding: 0;
     flex: 1;
     margin-right: 10px;
+}
+
+.settings-option-color-input {
+    padding: 0;
 }

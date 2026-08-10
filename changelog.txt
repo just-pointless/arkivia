@@ -1,3 +1,13 @@
+v0.23
+- Remove shields (armor is good enough already)
+- Add tool slot
+- Change default time format from yyyy/mm/dd to yyyy-mm-dd
+- Add mobile layout
+- Add experimental themes
+- Add scrolling in settings menu
+- Add highlights for changed options in settings menu
+- Add display for enemy stat total
+
 v0.22
 - Floor some stats instead of rounding
 - Add armor

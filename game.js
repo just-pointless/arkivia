@@ -1,4 +1,4 @@
-const VERSION = "0.22"
+const VERSION = "0.23"
 
 document.getElementById("game-title").textContent = `Arkivia v${VERSION}`
 
@@ -73,7 +73,7 @@ var craftInfo = {
 var team = "none"
 var equipment = {
     "weapon": null,
-    "shield": null,
+    "tool": null,
     "head": null,
     "chest": null,
     "arms": null,
@@ -824,8 +824,12 @@ function formatTime(time, timeOnly=false) {
     if (timeOnly) {
         return timeString
     }
-    if (settings['dateFormat'] == null) {
-        return `${dayName} ${capitaliseFirst(timeName)} ${year}/${month}/${day} ${timeString}`
+    if (!settings['dateFormat']) {
+        if (!settings['mobileLayout']) {
+            return `${dayName} ${capitaliseFirst(timeName)} ${year}-${month}-${day} ${timeString}`
+        } else {
+            return `${dayName.slice(0, 3)} ${capitaliseFirst(timeName)} ${year}-${month}-${day} ${timeString}`
+        }
     } else {
         return formatString(settings['dateFormat'], {
             "dayName": dayName,
@@ -1141,18 +1145,16 @@ function updateBattlestats(statName=null) {
 }
 
 function updateEnemyBattlestats(statName=null) {
+    let total = 0
     for (const [stat, value] of Object.entries(combatData['enemyStats'])) {
+        total += value
         if (statName == null || stat == statName) {
             const effectiveStat = value * calcEnemyStatDebuff(stat)
-            let debuffPercentage
-            if (effectiveStat != 0) {
-                debuffPercentage = effectiveStat / value * 100 - 100
-            } else {
-                debuffPercentage = 0
-            }
-            document.getElementById(`enemy-stat-${stat}`).textContent = `${capitaliseFirst(stat)}: ${formatNumber(value)}${Math.round(debuffPercentage) != 0 ? ` (${debuffPercentage.toFixed(0)}%)` : ""}`
+            const modifierPercentage = (effectiveStat / value * 100 - 100) || 0
+            document.getElementById(`enemy-stat-${stat}`).textContent = `${capitaliseFirst(stat)}: ${formatNumber(value, "floor", true)}${Math.round(modifierPercentage) != 0 ? ` (${(modifierPercentage > 0 ? "+" : "") + modifierPercentage.toFixed(0)}%)` : ""}`
         }
     }
+    document.getElementById(`enemy-stat-total`).textContent = `Ttl: ${formatNumber(total, "floor", true)}`
 }
 
 function colorGen(hex, text) {
@@ -1273,6 +1275,10 @@ function generateEnemy(enemyName, stats=null) {
     document.getElementById("attack-info-left").style.display = ""
     document.getElementById("attack-info-divider").style.display = ""
     document.getElementById("attack-info-right").style.display = ""
+    if (settings['mobileLayout']) {
+        document.getElementById("attack-info").style.display = "block"
+        document.getElementById("center").style.bottom = "225px"
+    }
 }
 
 function endFight() {
@@ -1299,6 +1305,10 @@ function endFight() {
     document.getElementById("attack-info-left").style.display = "none"
     document.getElementById("attack-info-divider").style.display = "none"
     document.getElementById("attack-info-right").style.display = "none"
+    if (settings['mobileLayout']) {
+        document.getElementById("attack-info").style.display = ""
+        document.getElementById("center").style.bottom = ""
+    }
 }
 
 function killEnemy() {
@@ -3115,6 +3125,16 @@ function tick() {
         if (document.visibilityState == "hidden" && combatData['enemy'] != null) {
             document.title = `Arkivia | L${xpToLevel(xp)} (${Math.floor(xpIntoLevel(xp) / xpForLevel(xpToLevel(xp)) * 100)}%) ${formatNumber(health, "round")}hp`
         }
+
+        if (settings['mobileLayout']) {
+            document.getElementById("attack-info").style.display = "block"
+            document.getElementById("center").style.bottom = "225px"
+        }
+    } else {
+        if (settings['mobileLayout']) {
+            document.getElementById("attack-info").style.display = ""
+            document.getElementById("center").style.bottom = ""
+        }
     }
 
     if (noSleepTime >= 1200) {
@@ -3315,7 +3335,7 @@ function changeEquipment(itemId) {
             textElem.style.fontSize = `${Math.floor(16 * (144 / (itemData[item]['name'].length * fontCharWidth)))}px`
         }
         textElem.textContent = itemData[item]['name']
-        textElem.style.color = "#ffffff"
+        textElem.style.color = "var(--color)"
         equipmentElem.querySelector(".bar-fill").style.width = `${inventoryNonStackable[itemId]['durability'] / inventoryNonStackable[itemId]['maxDurability'] * 100}%`
         const inventorySlot = document.getElementById(`item-${item}_${itemId}`)
         if (inventorySlot) {
@@ -4130,7 +4150,6 @@ function processText(text) {
     splitText.forEach(function(item, num) {
         let div = document.createElement("div")
         div.className = "main-text"
-        div.style.color = "white"
         
         let parts = item.split(imageRegex)
         parts.forEach(function(part, index) {
@@ -4272,6 +4291,17 @@ const settingsData = {
             }
         }
     },
+    "mobileLayout": {
+        "type": "toggle",
+        "text": "Mobile Layout",
+        "default": false,
+        "on": function() {
+            mobileLayout()
+        },
+        "off": function() {
+            desktopLayout()
+        }
+    },
     "autoRepeatCrafting": {
         "type": "toggle",
         "text": "Auto Repeat Crafting",
@@ -4280,7 +4310,136 @@ const settingsData = {
     "dateFormat": {
         "type": "text",
         "text": "Date Format",
-        "default": "${dayName} ${timeName} ${year}/${month}/${day} ${hours}:${minutes}"
+        "default": "${dayName} ${timeName} ${year}-${month}-${day} ${hours}:${minutes}"
+    },
+    // Theme stuff
+    "theme_background": {
+        "type": "color",
+        "text": "Background Color",
+        "default": "#222244",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--background", value)
+        }
+    },
+    "theme_color": {
+        "type": "color",
+        "text": "Text Color",
+        "default": "#ffffff",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--color", value)
+        }
+    },
+    "theme_foregroundBackground": {
+        "type": "color",
+        "text": "Foreground Background Color",
+        "default": "#333333",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--foreground-background", value)
+        }
+    },
+    "theme_foregroundBackgroundDark": {
+        "type": "color",
+        "text": "Foreground Background Dark Color",
+        "default": "#282828",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--foreground-background-dark", value)
+        }
+    },
+    "theme_backgroundBackground": {
+        "type": "color",
+        "text": "Background Background Color",
+        "default": "#222222",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--background-background", value)
+        }
+    },
+    "theme_centerBackground": {
+        "type": "color",
+        "text": "Center Background Color",
+        "default": "#222222",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--center-background", value)
+        }
+    },
+    "theme_centerTopBackground": {
+        "type": "color",
+        "text": "Center Topbar Background Color",
+        "default": "#332233",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--center-top-background", value)
+        }
+    },
+    "theme_centerTopColor": {
+        "type": "color",
+        "text": "Center Topbar Text Color",
+        "default": "#ccccff",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--center-top-color", value)
+        }
+    },
+    "theme_equipmentBackground": {
+        "type": "color",
+        "text": "Equipment Background Color",
+        "default": "#333344",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--equipment-background", value)
+        }
+    },
+    "theme_equipmentBorder": {
+        "type": "color",
+        "text": "Equipment Border Color",
+        "default": "#444499",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--equipment-border", value)
+        }
+    },
+    "theme_equipmentDurabilityBackground": {
+        "type": "color",
+        "text": "Equipment Durability Background Color",
+        "default": "#555577",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--equipment-durability-background", value)
+        }
+    },
+    "theme_tooltipBackground": {
+        "type": "color",
+        "text": "Tooltip Background Color",
+        "default": "#111111",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--tooltip-background", value)
+        }
+    },
+    "theme_tooltipColor": {
+        "type": "color",
+        "text": "Tooltip Text Color",
+        "default": "#ffffff",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--tooltip-color", value)
+        }
+    },
+    "theme_menuButtonBackground": {
+        "type": "color",
+        "text": "Menu Button Background Color",
+        "default": "#444444",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--menu-button-background", value)
+        }
+    },
+    "theme_menuButtonBackgroundHover": {
+        "type": "color",
+        "text": "Menu Button Hover Color",
+        "default": "#555555",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--menu-button-background-hover", value)
+        }
+    },
+    "theme_bottombarBackground": {
+        "type": "color",
+        "text": "Bottombar Background Color",
+        "default": "#999999",
+        "execute": function(value) {
+            document.documentElement.style.setProperty("--bottombar-background", value)
+        }
     }
 }
 const settingsCategories = {
@@ -4290,7 +4449,9 @@ const settingsCategories = {
             "sceneTransitions",
             "sceneImages",
             "",
-            "dateFormat"
+            "dateFormat",
+            "",
+            "mobileLayout"
         ]
     },
     "accessibility": {
@@ -4304,16 +4465,43 @@ const settingsCategories = {
         "settings": [
             "autoRepeatCrafting"
         ]
+    },
+    "theme": {
+        "name": "Theme",
+        "settings": [
+            {"type": "text", "text": "These features are experimental and incomplete"},
+            "",
+            "theme_background",
+            "theme_color",
+            "theme_foregroundBackground",
+            "theme_foregroundBackgroundDark",
+            "theme_backgroundBackground",
+            "theme_centerBackground",
+            "theme_centerTopBackground",
+            "theme_centerTopColor",
+            "theme_equipmentBackground",
+            "theme_equipmentBorder",
+            "theme_equipmentDurabilityBackground",
+            "theme_tooltipBackground",
+            "theme_tooltipColor",
+            "theme_menuButtonBackground",
+            "theme_menuButtonBackgroundHover",
+            "theme_bottombarBackground"
+        ]
     }
 }
 
 for (const [setting, value] of Object.entries(settings)) {
     if (settingsData[setting]) {
-        if (settingsData[setting]['type'] == "toggle" && value != settingsData[setting]['default']) {
-            if (value == true && settingsData[setting]['on']) {
-                settingsData[setting]['on']()
-            } else if (value == false && settingsData[setting]['off']) {
-                settingsData[setting]['off']()
+        if (value != settingsData[setting]['default']) {
+            if (settingsData[setting]['type'] == "toggle") {
+                if (value == true && settingsData[setting]['on']) {
+                    settingsData[setting]['on']()
+                } else if (value == false && settingsData[setting]['off']) {
+                    settingsData[setting]['off']()
+                }
+            } else if (settingsData[setting]['type'] == "color") {
+                settingsData[setting]['execute'](value)
             }
         }
     }
@@ -4340,6 +4528,13 @@ document.getElementById("settings-button").addEventListener("click", function() 
                     if (option === "") {
                         settingsOptionsElem.appendChild(document.createElement("br"))
                         continue
+                    } else if (typeof option == "object") {
+                        if (option['type'] == "text") {
+                            const text = document.createElement("div")
+                            text.textContent = option['text']
+                            settingsOptionsElem.appendChild(text)
+                        }
+                        continue
                     }
                     
                     const values = settingsData[option]
@@ -4354,8 +4549,10 @@ document.getElementById("settings-button").addEventListener("click", function() 
                         toggle.addEventListener("change", function() {
                             if (toggle.checked != values['default']) {
                                 settings[option] = toggle.checked
+                                text.style.color = "#ffeeaa"
                             } else {
                                 delete settings[option]
+                                text.style.color = ""
                             }
 
                             if (toggle.checked && values['on']) {values['on']()}
@@ -4372,7 +4569,6 @@ document.getElementById("settings-button").addEventListener("click", function() 
                         const text = document.createElement("span")
                         text.textContent = values['text']
                         holder.appendChild(text)
-
                         
                         const textInput = document.createElement("input")
                         textInput.type = "text"
@@ -4382,8 +4578,10 @@ document.getElementById("settings-button").addEventListener("click", function() 
                         function finish(mode) {
                             if (textInput.value != values['default']) {
                                 settings[option] = textInput.value
+                                text.style.color = "#ffeeaa"
                             } else {
                                 delete settings[option]
+                                text.style.color = ""
                             }
 
                             if (mode == "key") {textInput.blur()}
@@ -4397,6 +4595,46 @@ document.getElementById("settings-button").addEventListener("click", function() 
                         textInput.addEventListener("blur", finish)
 
                         holder.appendChild(textInput)
+                    } else if (values['type'] == "color") {
+                        const text = document.createElement("span")
+                        text.textContent = values['text']
+                        holder.appendChild(text)
+                        
+                        const colorInput = document.createElement("input")
+                        colorInput.type = "color"
+                        colorInput.className = "settings-option-color-input"
+                        colorInput.value = settings[option] != undefined ? settings[option] : values['default'] || "#000000"
+
+                        colorInput.addEventListener("change", function() {
+                            if (colorInput.value != values['default']) {
+                                settings[option] = colorInput.value
+                                text.style.color = "#ffeeaa"
+                            } else {
+                                delete settings[option]
+                                text.style.color = ""
+                            }
+                            if (values['execute']) {values['execute'](colorInput.value)}
+                            saveToLocal(settings, "arkivia-settings")
+                        })
+
+                        colorInput.addEventListener("input", function() {
+                            if (values['execute']) {values['execute'](colorInput.value)}
+                        })
+
+                        holder.appendChild(colorInput)
+
+                        const resetButton = document.createElement("button")
+                        resetButton.textContent = "Reset"
+
+                        resetButton.addEventListener("click", function() {
+                            colorInput.value = values['default']
+                            delete settings[option]
+                            text.style.color = ""
+                            if (values['execute']) {values['execute'](colorInput.value)}
+                            saveToLocal(settings, "arkivia-settings")
+                        })
+
+                        holder.appendChild(resetButton)
                     }
                     settingsOptionsElem.appendChild(holder)   
                 }
@@ -4416,6 +4654,83 @@ document.getElementById("settings-button").addEventListener("click", function() 
 
 function objectEmpty(obj) {
     return Object.keys(obj).length === 0
+}
+
+// Mobile
+function mobileLayout() {
+    document.getElementById("mobile-meta").setAttribute("content", "width=device-width, initial-scale=1")
+    const link = document.createElement("link")
+    link.id = "mobile-layout"
+    link.rel = "stylesheet"
+    link.href = "mobile.css"
+    document.head.appendChild(link)
+
+    document.getElementById("delete-save").textContent = "Del"
+    document.getElementById("settings-button").textContent = "Conf"
+    document.getElementById("game-title").textContent = `v${VERSION}`
+
+    const sidebar = document.getElementById("sidebar")
+    let startX = 0
+    let startY = 0
+    let sidebarOpen = false
+    eventListenerStorage['mobileTouchstart'] = document.addEventListener("touchstart", function(e) {
+        startX = e.touches[0].clientX
+        startY = e.touches[0].clientY
+    })
+
+    eventListenerStorage['mobileTouchmove'] = document.addEventListener("touchmove", function(e) {
+        sidebar.style.transition = "none"
+        if (!sidebarOpen) {
+            sidebar.style.transform = `translateX(${Math.max(0, e.touches[0].clientX - startX) - sidebar.offsetWidth}px)`
+        } else {
+            sidebar.style.transform = `translateX(${Math.min(0, e.touches[0].clientX - startX)}px)`
+        }
+    })
+
+    eventListenerStorage['mobileTouchend'] = document.addEventListener("touchend", function(e) {
+        const endX = e.changedTouches[0].clientX
+        const endY = e.changedTouches[0].clientY
+
+        const deltaX = endX - startX
+        const deltaY = endY - startY
+
+        if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+            if (sidebarOpen) {
+                sidebar.style.transform = "translateX(0%)"
+            } else {
+                sidebar.style.transform = "translateX(-100%)"
+            }
+            return
+        }
+
+        sidebar.style.transition = "transform 250ms ease-out"
+
+        if (deltaX > 0) {
+            sidebarOpen = true
+            sidebar.style.transform = "translateX(0%)"
+        } else {
+            sidebarOpen = false
+            sidebar.style.transform = "translateX(-100%)"
+        }
+    })
+}
+
+function desktopLayout() {
+    document.getElementById("mobile-layout").remove()
+    document.getElementById("mobile-meta").setAttribute("content", "width=1000")
+    sidebar.style.transform = ""
+    sidebar.style.transition = ""
+    document.getElementById("delete-save").textContent = "Delete"
+    document.getElementById("settings-button").textContent = "Settings"
+    document.getElementById("game-title").textContent = `Arkivia v${VERSION}`
+}
+
+if (!settings['run']) {
+    if (window.screen.width < 1000 && window.screen.height * 1.5 > window.screen.width) {
+        mobileLayout()
+        settings['mobileLayout'] = true
+        insertLog("It appears that you're using a mobile device. The layout has automatically been changed. You can revert this in this configuration menu.")
+    }
 }
 
 // Saves
@@ -4557,6 +4872,10 @@ function loadSave(dict) {
                 dict['combatData']['enemyEffects'] = {}
             }
         }
+        if (versionCompare(dict['version'], "0.23")) {
+            delete dict['equipment']['shield']
+            dict['equipment']['tool'] = null
+        }
         
         // Stats
         time = dict['time'] ?? time
@@ -4628,9 +4947,12 @@ function loadSave(dict) {
         arenaData = dict['arenaData'] ?? arenaData
 
         if (combatData['enemy'] != null) {
+            let total = 0
             for (const stat of statTypes) {
-                document.getElementById(`enemy-stat-${stat}`).textContent = `${capitaliseFirst(stat)}: ${formatNumber(combatData['enemyStats'][stat])}`
+                total += combatData['enemyStats'][stat]
+                document.getElementById(`enemy-stat-${stat}`).textContent = `${capitaliseFirst(stat)}: ${formatNumber(combatData['enemyStats'][stat], "floor", true)}`
             }
+            document.getElementById(`enemy-stat-total`).textContent = `Ttl: ${formatNumber(total, "floor", true)}`
 
             document.getElementById("enemy-name").textContent = enemyData[combatData['enemy']]['name']
             updateBar("enemyHealth")
@@ -4866,3 +5188,7 @@ document.getElementById("debug-settings-tickDelay").addEventListener("keydown", 
 updateBar("health")
 updateBar("xp")
 updateBattlestats()
+if (!settings['run']) {
+    settings['run'] = true
+    saveToLocal(settings, "arkivia-settings")
+}
