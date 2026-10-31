@@ -13,6 +13,7 @@
     --center-top-color: #ccccff;
     --link: #518ae0;
     --link-hover: #7da8e8;
+    --center-bottom-background: #181818;
     --money: #cccc55;
     --hover-background: #444444;
     --menu-button-background: #444444;
@@ -63,7 +64,7 @@ body {
 #main, #main-transition {
     position: absolute;
     top: 30px;
-    bottom: 0;
+    bottom: 30px;
     left: 5px;
     right: 5px;
 }
@@ -97,6 +98,18 @@ body {
     color: var(--link-hover);
 }
 
+.main-processing::after {
+    color: #cccccc;
+    content: ".";
+    animation: processingText 3s infinite
+}
+
+@keyframes processingText {
+    0% {content: ".";}
+    33% {content: "..";}
+    67% {content: "...";}
+}
+
 img { 
     image-rendering: pixelated;
 }
@@ -120,6 +133,37 @@ img {
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
+}
+
+#center-bottom {
+    display: flex;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 30px;
+    background-color: var(--center-bottom-background);
+}
+
+.action-button {
+    display: inline;
+    padding-inline: 6px;
+    padding-block: 1px;
+    background: 0;
+    font-size: 14px;
+    font-family: monospace;
+    color: #00ff00;
+    border: 1px solid #007700;
+    cursor: pointer;
+}
+
+.action-button.enabled {
+    background-color: #333333;
+    border: 1px solid #00aa00;
+}
+
+.action-button:hover {
+    color: #aaffaa;
+    border: 1px solid #00ff00;
 }
 
 #sidebar {
@@ -523,6 +567,11 @@ img {
     font-size: 16px;
     text-decoration: none;
     color: #000000;
+}
+
+#game-title.update {
+    font-weight: bold;
+    border: 2px solid #ffff00
 }
 
 #bottombar-right {
