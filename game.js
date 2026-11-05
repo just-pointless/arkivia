@@ -1,4 +1,4 @@
-const VERSION = "0.24"
+const VERSION = "0.25"
 
 const gameTitleElement = document.getElementById("game-title")
 gameTitleElement.textContent = `Arkivia v${VERSION}`
@@ -56,10 +56,7 @@ let questProgression = {}
 let completedQuests = []
 let stats = {
     "playtime": 0,
-    "gametime": 0,
-    "kills": {},
-    "totalKills": 0,
-    "discoveredItems": [],
+    "gametime": 0
 }
 let shopStorage = {}
 let knownRecipes = ["strawBasket", "woodenSpear"]
@@ -299,7 +296,7 @@ const skillData = {
     "training": {
         "name": "Training",
         "desc": "Increases stat gains from training",
-        "scaling": 1.3
+        "scaling": 1.2
     },
     "crafting": {
         "name": "Crafting",
@@ -360,6 +357,11 @@ const skillData = {
     "felling": {
         "name": "Felling",
         "desc": "Increases speed of chopping down trees",
+        "scaling": 1.3
+    },
+    "sleeping": {
+        "name": "Sleeping",
+        "desc": "Increases energy regeneration while sleeping",
         "scaling": 1.3
     }
 }
@@ -693,6 +695,12 @@ const itemData = {
                 "wood": 3
             }
         }
+    },
+    "huntersGuildSupplies": {
+        "name": "Supply Box",
+        "desc": "Supplies for the Hunters' Guild",
+        "class": "misc",
+        "weight": 10000
     }
 }
 const effectData = {
@@ -843,6 +851,28 @@ const questData = {
                 }
             }
         }
+    },
+    "els3": {
+        "name": "Hunters' Guild Supplies",
+        "desc": "Els has requested you to obtain supplies from the merchant in town and return back to him",
+        "repeatable": false,
+        "manualComplete": true,
+        "goals": {
+            "items": {
+                "huntersGuildSupplies": {"amount": 1}
+            }
+        }
+    },
+    "els4": {
+        "name": "Hunters' Guild Supplies 2",
+        "desc": "Els has requested you to obtain 10 pieces of stone",
+        "repeatable": false,
+        "manualComplete": true,
+        "goals": {
+            "items": {
+                "stone": {"amount": 10}
+            }
+        }
     }
 }
 const shopData = {
@@ -880,7 +910,8 @@ const titleData = {
     "sleeper": {"name": "Sleeper"},
     "alchemist": {"name": "Alchemist"},
     "miner": {"name": "Miner"},
-    "lumberjack": {"name": "Lumberjack"}
+    "lumberjack": {"name": "Lumberjack"},
+    "walker": {"name": "Walker"}
 }
 const arenaStatData = [
     {"health": [30, 40], "stats": [4,6], "reward": 10},
@@ -907,7 +938,7 @@ function minutesToDate(time) {
     return baseDate
 }
 
-function formatTime(time, timeOnly=false) {
+function formatTime(time, timeOnly=false, customFormat=null) {
     const baseDate = minutesToDate(time)
 
     const dayName = getDayName(baseDate)
@@ -924,14 +955,14 @@ function formatTime(time, timeOnly=false) {
     if (timeOnly) {
         return timeString
     }
-    if (!settings['dateFormat']) {
+    if (!settings['dateFormat'] && !customFormat) {
         if (!settings['mobileLayout']) {
             return `${dayName} ${capitaliseFirst(timeName)} ${year}-${month}-${day} ${timeString}`
         } else {
             return `${dayName.slice(0, 3)} ${capitaliseFirst(timeName)} ${year}-${month}-${day} ${timeString}`
         }
     } else {
-        return formatString(settings['dateFormat'], {
+        return formatString(customFormat ?? settings['dateFormat'], {
             "dayName": dayName,
             "shortDayName": dayName.slice(0, 3),
             "timeName": capitaliseFirst(timeName),
@@ -1011,31 +1042,31 @@ const achievementData = {
     "firstBlood": statAchievement({
         "name": "First Blood",
         "desc": "Defeat 1 enemy",
-        "check": function() {return stats['totalKills']},
+        "check": function() {return stats['totalKills'] ?? 0},
         "goal": 1
     }),
     "hunter": statAchievement({
         "name": "Hunter",
         "desc": "Defeat 10 enemies",
-        "check": function() {return stats['totalKills']},
+        "check": function() {return stats['totalKills'] ?? 0},
         "goal": 10
     }),
     "killer": statAchievement({
         "name": "Killer",
         "desc": "Defeat 100 enemies",
-        "check": function() {return stats['totalKills']},
+        "check": function() {return stats['totalKills'] ?? 0},
         "goal": 100
     }),
     "exterminator": statAchievement({
         "name": "Exterminator",
         "desc": "Defeat 1,000 enemies",
-        "check": function() {return stats['totalKills']},
+        "check": function() {return stats['totalKills'] ?? 0},
         "goal": 1000
     }),
     "collector": statAchievement({
         "name": "Collector",
         "desc": "Discover 10 items",
-        "check": function() {return stats['discoveredItems'].length},
+        "check": function() {return stats['discoveredItems']?.length ?? 0},
         "goal": 10
     }),
     "flatline": {
@@ -1435,8 +1466,10 @@ function killEnemy() {
     }
 
     changeQuestProgress("kills", combatStatus['enemy'], 1)
+
+    if (!stats['kills']) {stats['kills'] = {}}
     stats['kills'][combatStatus['enemy']] = (stats['kills'][combatStatus['enemy']] ?? 0) + 1
-    stats['totalKills'] += 1
+    stats['totalKills'] = (stats['totalKills'] ?? 0) + 1
     checkAchievements(["firstBlood", "hunter", "killer", "exterminator"])
 
     if (combatStatus['onDeath']) {
@@ -1483,8 +1516,22 @@ function calcArmorMitigation(damage, armor) {
 }
 
 function changeSkill(skill, skillXp) {
+    if (skillData[skill] === undefined) {
+        insertLog(colorGen("#ff0000", `Attempted to change invalid skill "${skill}"`))
+        return
+    }
     const scaling = skillData[skill]['scaling']
     const currentLevel = xpToLevel(skills[skill] || 0, false, scaling)
+
+
+    if (!Number.isInteger(skillXp)) {
+        insertLog(colorGen("#ff0000", `Attempted to change skill "${skill}" by invalid amount (${skillXp})`))
+        if (Number.isFinite(skillXp)) {
+            skillXp = Math.floor(skillXp)
+        } else {
+            return
+        }
+    }
 
     if (skills[skill] === undefined) {
         skills[skill] = skillXp
@@ -1657,6 +1704,19 @@ function genItemLogText(item, amount) {
 
 let itemLogStackData = {"id": null, "item": null, "amount": null, "type": null}
 function changeInventory(item, amount, announceReduction=false, itemId=null, newItemData=null) {
+    if (!itemData[item]) {
+        insertLog(colorGen("#ff0000", `Attempted to create invalid item "${item}"`))
+        return
+    }
+    if (!Number.isInteger(amount)) {
+        insertLog(colorGen("#ff0000", `Attempted to change item "${item}" by invalid amount (${amount})`))
+        if (Number.isFinite(amount)) {
+            amount = Math.floor(amount)
+        } else {
+            return
+        }
+    }
+
     if (itemData[item]['stackable'] !== false) {
         if (inventory[item] === undefined) {
             if (amount <= 0) {return false}
@@ -1787,6 +1847,19 @@ function generateStorageMenu() {
 }
 
 function changeStorage(item, amount, itemId=null, newItemData=null, announce=true) {
+    if (!itemData[item]) {
+        insertLog(colorGen("#ff0000", `Attempted to create invalid item "${item}"`))
+        return
+    }
+    if (!Number.isInteger(amount)) {
+        insertLog(colorGen("#ff0000", `Attempted to change item "${item}" by invalid amount (${amount})`))
+        if (Number.isFinite(amount)) {
+            amount = Math.floor(amount)
+        } else {
+            return
+        }
+    }
+
     if (itemData[item]['stackable'] !== false) {
         if (storage[item] === undefined) {
             if (amount <= 0) {return false}
@@ -1844,16 +1917,16 @@ function getSkillLevel(skill) {
     }
 }
 
-function itemClickDetector(e, storage=false) {
-    let item = null
-    let itemId = null
-    if (storage === false) {
+function itemClickDetector(e, isStorage=false) {
+    let item = undefined
+    let itemId = undefined
+    if (isStorage === false) {
         if (e.target.id.startsWith("item-")) {
             item = e.target.id.replace("item-", "")
         } else if (e.target.parentElement.id.startsWith("item-")) {
             item = e.target.parentElement.id.replace("item-", "")
         }
-    } else if (storage === true) {
+    } else if (isStorage === true) {
         if (e.target.id.startsWith("storage-item-")) {
             item = e.target.id.replace("storage-item-", "")
         } else if (e.target.parentElement.id.startsWith("storage-item-")) {
@@ -1865,15 +1938,17 @@ function itemClickDetector(e, storage=false) {
         [item, itemId] = item.split("_")
     }
 
-    if (item !== null) {
-        if (storage === false) {
+    if (item !== undefined) {
+        if (isStorage === false) {
             const newItemData = inventoryNonStackable[itemId]
-            changeInventory(item, -1, false, itemId)
-            changeStorage(item, 1, itemId, newItemData)
-        } else if (storage === true) {
+            const moveCount = itemId !== undefined ? 1 : Math.min(inventory[item], multi)
+            changeInventory(item, -moveCount, false, itemId)
+            changeStorage(item, moveCount, itemId, newItemData)
+        } else if (isStorage === true) {
             const newItemData = storageNonStackable[itemId]
-            changeStorage(item, -1, itemId)
-            changeInventory(item, 1, false, itemId, newItemData)
+            const moveCount = itemId !== undefined ? 1 : Math.min(storage[item], multi)
+            changeStorage(item, -moveCount, itemId)
+            changeInventory(item, moveCount, false, itemId, newItemData)
         }
     }
 }
@@ -2579,8 +2654,12 @@ function trainingAreaHandler(stat, gymName="none") {
 function calcTrainingModifier(stat=null) {
     let multi = 1
     // Positive
-    multi += getSkillLevel("training") * 0.02
-    if (effects['exercisePill']) {multi += 0.5}
+    multi += getSkillLevel("training") * 0.05
+
+    // Booster Multi
+    let boosterMulti = 1
+    if (effects['exercisePill']) {boosterMulti += 0.5}
+    multi *= boosterMulti
 
     // Negative
     if (energy < 35) {
@@ -2596,10 +2675,10 @@ function getTrainingModifierInfo(stat=null) {
     }
 
     if (getSkillLevel("training") > 0) {
-        data['positive'].push({"source": "Training Skill", "change": getSkillLevel("training") * 0.02})
+        data['positive'].push({"source": "Training Skill", "change": getSkillLevel("training") * 0.05})
     }
 
-    if (effects['exercisePill']) {data['positive'].push({"source": "Exercise Pill", "change": 0.5})}
+    if (effects['exercisePill']) {data['positive'].push({"source": "Exercise Pill", "change": 0.5, "multi": true})}
 
     if (energy < 35) {
         data['negative'].push({"source": "Energy", "change": energy / 70 + 0.5})
@@ -2612,7 +2691,7 @@ function getTrainingModifierBreakdown(stat) {
     const data = getTrainingModifierInfo(stat)
     output = []
     for (const effect of data['positive']) {
-        output.push(`${colorGen("#00ff00", `+${formatNumber(effect['change'] * 100, false, true)}%`)} ${effect['source']}`)
+        output.push(`${colorGen("#00ff00", `${effect['multi'] ? "x+" : "+"}${formatNumber(effect['change'] * 100, false, true)}%`)} ${effect['source']}`)
     }
     // if (data['positive'].length > 0 && data['negative'].length > 0) {
     //     output.push("")
@@ -2846,6 +2925,10 @@ function generateCraftingMenu() {
 }
 
 function changeMoney(amount) {
+    if (!Number.isFinite(amount)) {
+        insertLog(colorGen("#ff0000", `Attempted to change money by invalid amount (${amount})`))
+        return
+    }
     money += amount
     if (amount > 0) {
         insertLog(`Obtained ${colorGen("#cccc55", `$${formatNumber(amount)}`)}`)
@@ -2975,12 +3058,13 @@ const sceneTicks = new Map([
         generateEnemy("strawDummy")
     }],
     ["sleep", function() {
-        changeEnergy(2)
+        changeTitleXp("sleeper", 1)
+        changeSkill("sleeping", 1)
+        changeEnergy(2 + getSkillLevel("sleeping") * 0.1)
         if (noSleepTime >= 1440) {
             noSleepTime = noSleepTime * 0.98
         }
         noSleepTime = Math.max(noSleepTime - 40, 0)
-        changeTitleXp("sleeper", 1)
     }],
     ["hospital", function() {
         changeHealth(Math.round(Math.max(calcMaxHp(xpToLevel(xp)) / 30, 2)))
@@ -3110,6 +3194,7 @@ function tick() {
         // }
         travelStatus['completed'] += getMovementSpeed()
         changeSkill("walking", 1)
+        changeTitleXp("walker", 2)
         if (travelStatus['completed'] >= travelStatus['distance']) {
             sceneManager(travelStatus['destination'])
             playTransition()
@@ -3313,7 +3398,7 @@ function tick() {
             killEnemy()
         }
 
-        if (document.visibilityState === "hidden" && combatStatus['enemy'] !== null) {
+        if (document.visibilityState === "hidden") {
             document.title = `Arkivia | L${xpToLevel(xp)} (${Math.floor(xpIntoLevel(xp) / xpForLevel(xpToLevel(xp)) * 100)}%) ${formatNumber(health, "round")}hp`
         }
 
@@ -3566,22 +3651,56 @@ function changeEquipment(itemId) {
     }
 }
 
+let multi = 1
+
+function setMulti(newMulti) {
+    if (newMulti !== multi) {
+        multi = newMulti
+        return true
+    } else {
+        multi = 1
+        return false
+    }
+}
+
+document.getElementById("inventory-10x").addEventListener("click", function() {
+    for (const element of document.getElementById("multi-holder").children) {
+        element.classList.remove("selected")
+    }
+    this.classList.toggle("selected", setMulti(10))
+})
+
+document.getElementById("inventory-100x").addEventListener("click", function() {
+    for (const element of document.getElementById("multi-holder").children) {
+        element.classList.remove("selected")
+    }
+    this.classList.toggle("selected", setMulti(100))
+})
+
+document.getElementById("inventory-all").addEventListener("click", function() {
+    for (const element of document.getElementById("multi-holder").children) {
+        element.classList.remove("selected")
+    }
+    this.classList.toggle("selected", setMulti(1e9))
+})
+
 document.getElementById("inventory-table").addEventListener("click", function(e) {
     if (storageAccess) {return}
     let [item, itemId] = e.target.closest("[id^=\"item-\"]").id.replace("item-", "").split("_")
 
     if (discardMode === true) {
         if (item !== null) {
-            changeInventory(item, -1, false, itemId)
+            const deleteCount = itemId !== undefined ? 1 : Math.min(inventory[item], multi)
+            changeInventory(item, -deleteCount, false, itemId)
             if (itemLogStackData['type'] !== "discard" || itemLogStackData['item'] !== item) {
                 itemLogStackData = {"id": null, "item": null, "amount": null, "type": null}
             }
-            itemLogStackData['amount'] += 1
+            itemLogStackData['amount'] += deleteCount
             itemLogStackData['id'] = insertLog(`Discarded ${genItemLogText(item, itemLogStackData['amount'])}`, [itemData[item]['name'], itemData[item]['desc']], itemLogStackData['id'])
             itemLogStackData['type'] = "discard"
             itemLogStackData['item'] = item
 
-            stats['itemsDeleted'] = (stats['itemsDeleted'] ?? 0) + 1
+            stats['itemsDeleted'] = (stats['itemsDeleted'] ?? 0) + deleteCount
             checkAchievement("wasteful")
         }
         return
@@ -3638,10 +3757,12 @@ document.getElementById("inventory-discard").addEventListener("click", function(
         discardMode = true
         document.getElementById("inventory-discard").style.backgroundColor = "#ff0000"
         document.getElementById("inventory-discard").style.color = "#000000"
+        document.getElementById("inventory-table").style.setProperty("--hover-background", "#aa4444")
     } else {
         discardMode = false
         document.getElementById("inventory-discard").style.backgroundColor = ""
         document.getElementById("inventory-discard").style.color = ""
+        document.getElementById("inventory-table").style.removeProperty("--hover-background")
     }
 })
 
@@ -3669,34 +3790,45 @@ function genQuestGiver(checkId, actionTexts, questList) {
         if ((completedQuests.includes(questList[i]['quest']) || metQuests[questList[i]['quest']]) && (questProgression[checkId] === undefined || questProgression[checkId] < i)) {
             const quest = questList[i]
 
-            if (metQuests[questList[i]['quest']]) {
-                delete metQuests[questList[i]['quest']]
-                giveQuest(questList[i]['quest'], true)
+            if (metQuests[quest['quest']]) {
+                delete metQuests[quest['quest']]
+                giveQuest(quest['quest'], true)
             }
 
             questProgression[checkId] = i
             if (questList[i + 1] !== undefined && questList[i + 1]['introMessage'] === undefined) {
                 giveQuest(questList[i + 1]['quest'])
             }
-            if (questList[i]['rewards']) {
-                for (const [item, amount] of Object.entries(questList[i]['rewards'])) {
+            if (quest['rewards']) {
+                for (const [item, amount] of Object.entries(quest['rewards'])) {
                     changeInventory(item, amount)
                 }
             }
-            if (questList[i]['money']) {
-                changeMoney(questList[i]['money'])
+            if (quest['money']) {
+                changeMoney(quest['money'])
             }
 
-            if (questList[i]['consumed']) {
-                for (const [item, amount] of Object.entries(questList[i]['consumed'])) {
+            if (quest['consumed']) {
+                for (const [item, amount] of Object.entries(quest['consumed'])) {
                     changeInventory(item, -amount)
                 }
             }
 
+            if (quest['completeExecute']) {
+                quest['completeExecute']()
+            }
+
             return quest['message']
-        } else if (questList[i]['introMessage'] !== undefined && (questProgression[checkId] === undefined || questProgression[checkId] < i)) {
+        } else if (questList[i]['introMessage'] !== undefined && (questProgression[checkId] === undefined || i <= questProgression[checkId] + 1) && !quests[questList[i]['quest']] && !completedQuests.includes(questList[i]['quest'])) {
             const quest = questList[i]
-            giveQuest(questList[i]['quest'])
+            if (quest['requirements']) {
+                for (const requirement of quest['requirements']) {
+                    if (!requirement['check']()) {
+                        return requirement['message']
+                    }
+                }
+            }
+            giveQuest(quest['quest'])
             return quest['introMessage']
         }
     }
@@ -4163,7 +4295,10 @@ class scenes {
     }
 
     static merchant() {
-        return `"Welcome! I'm the main supplier of various goods in this town. I can also buy any straw baskets that you may have. Feel free to look around."\n\n{![dollar.png]Sell|merchantSell}\n\n{![leave.png]Leave|townCenter}`
+        let r = `"Welcome! I'm the main supplier of various goods in this town. I can also buy any straw baskets that you may have. Feel free to look around."`
+        if (quests['els3'] && !metQuests['els3']) {r += `\n\n{![chat.png]Request for supplies|merchantGuildQuestSupplies}`}
+        r +=  `\n\n{![dollar.png]Sell|merchantSell}\n\n{![leave.png]Leave|townCenter}`
+        return r
     }
 
     static merchantSell() {
@@ -4172,6 +4307,11 @@ class scenes {
         } else {
             return `"Would you like to sell all your straw baskets for a total of ${colorGen("#cccc55", `$${inventory['strawBasket'] * 5}`)}?"\n\n{![tick.png]Yes|merchant|0|merchantSell}\n\n{![leave.png]Return|merchant}`
         }
+    }
+
+    static merchantGuildQuestSupplies() {
+        changeInventory("huntersGuildSupplies", 1)
+        return `"Ah, Els sent you right? Here, take this."\n\nYou pick up the heavy box the merchant hands you.\n\n{Next|merchant}`
     }
 
     static townNorth() {
@@ -4316,7 +4456,7 @@ class scenes {
     static huntersGuildEls() {
         let r = `"Hello, what do you need today?"`
         if (checks['huntersGuildAskQuest']) {
-            if (!["els1", "els2"].some(key => quests[key])) {
+            if (!["els1", "els2", "els3", "els4"].some(key => quests[key])) {
                 r += `\n\n{![poster.png]Receive Quest|huntersGuildElsQuest}`
             } else {
                 r += `\n\n{![poster.png]Quest Completion|huntersGuildElsQuest}`
@@ -4344,6 +4484,30 @@ class scenes {
                 "money": 20,
                 "introMessage": `"We're planning on expanding our search operation into a new area of the forest. Go to the forest path and clear the enemies there."\n\n{![leave.png]Return|huntersGuildEls}`,
                 "message": `"Thanks for your help, I'll be sending a few of our guys to explore deeper in to the forest. I'll let you know if we find anything."\n\n{![leave.png]Return|huntersGuildEls}`
+            },
+            {
+                "quest": "els3",
+                "money": 10,
+                "consumed": {
+                    "huntersGuildSupplies": 1
+                },
+                "completeExecute": function() {
+                    checks['elsQuestlineCooldown'] = time + 1440 * 2
+                },
+                "introMessage": `"We've been running a bit low on supplies lately and we're planning on setting up a new area in this building. Would you be able to fetch some supplies from the merchant in town? Just tell the merchant that I've sent you. The package may be a little heavy."\n\n{![leave.png]Return|huntersGuildEls}`,
+                "message": `"Thanks again, this should be good for now. I'll be able to give you another quest in around 2 days from now"\n\n{![leave.png]Return|huntersGuildEls}`,
+            },
+            {
+                "quest": "els4",
+                "money": 30,
+                "consumed": {
+                    "stone": 10
+                },
+                "requirements": [
+                    {"check": function() {return time >= checks['elsQuestlineCooldown']}, "message": `"We're not quite ready yet, come back on ${formatTime(checks['elsQuestlineCooldown'] ?? 0, false, "${dayName} ${hours}:${minutes}")}."\n\n{![leave.png]Return|huntersGuildEls}`}
+                ],
+                "introMessage": `"We're going to need some stone for our project. Go to the mine deeper in the forst and collect 10 stones. Come back when you're done."\n\n{![leave.png]Return|huntersGuildEls}`,
+                "message": `"Thanks for the stone, we're closer to finishing our project."\n\n{![leave.png]Return|huntersGuildEls}`
             }
         ])
     }
@@ -4835,6 +4999,68 @@ const settingsCategories = {
             "theme_menuButtonBackgroundHover",
             "theme_bottombarBackground"
         ]
+    },
+    "stats": {
+        "name": "Stats",
+        "execute": function(settingsOptionsElement) {
+            let text = ""
+            text += `Playtime: ${stats['playtime']}\n`
+            text += `Game Time: ${stats['gametime']}\n\n`
+
+            text += `Quests: ${completedQuests.length}/${Object.keys(questData).length}\n`
+            text += `Items: ${stats['discoveredItems'].length}/${Object.keys(itemData).length}\n`
+            text += `Skills: ${Object.keys(skills).length}/${Object.keys(skillData).length}\n`
+            text += `Achievements: ${achievements.length}/${Object.keys(achievementData).length}\n`
+
+            if (stats['kills'] && Object.keys(stats['kills']).length > 0) {
+                text += `\nKills:\n`
+                for (const [enemy, count] of Object.entries(stats['kills'])) {
+                    text += ` - ${enemyData[enemy]['name']}: ${count}\n`
+                }
+                text += "\n"
+            }
+            settingsOptionsElement.textContent = text
+        }
+    },
+    "saves": {
+        "name": "Backup Saves",
+        "execute": function(settingsOptionsElement) {
+            settingsOptionsElement.textContent = "These are only meant to be used as backups for when your main save breaks. A new backup save is created whenever the version changes. Loading these saves will overwrite your main save so make sure to back up your current one as well."
+            for (let i = 1; i <= 3; i++) {
+                const save = loadFromLocal(`arkivia-save-backup${i}`)
+                
+                if (save) {
+                    const saveHolder = document.createElement("div")
+                    saveHolder.className = "settings-save-holder"
+
+                    const saveTitle = document.createElement("div")
+                    saveTitle.className = "settings-save-title"
+                    saveTitle.textContent = `Backup ${i} - v${save['version']}`
+                    saveHolder.appendChild(saveTitle)
+
+                    const saveData = document.createElement("div")
+                    saveData.classNamem = "settings-save-data"
+                    let text = ""
+                    if (save['timestamp']) {
+                        text += `${new Date(save['timestamp'] * 1000).toLocaleString()}\n`
+                    }
+
+                    text += `Level ${xpToLevel(save['xp'])} ${getRank(save['battleStats']['str'] + save['battleStats']['def'] + save['battleStats']['spd'] + save['battleStats']['dex'])} ${save['playerTitle']}\n`
+                    saveData.textContent = text
+                    saveHolder.appendChild(saveData)
+
+                    const downloadButton = document.createElement("button")
+                    downloadButton.className = "settings-save-download"
+                    downloadButton.textContent = "Download"
+                    downloadButton.addEventListener("click", function() {
+                        exportDict(save, "ArkiviaBackup.sav")
+                    })
+                    saveHolder.appendChild(downloadButton)
+
+                    settingsOptionsElement.appendChild(saveHolder)
+                }
+            }
+        }
     }
 }
 
@@ -4863,127 +5089,144 @@ document.getElementById("settings-button").addEventListener("click", function() 
             category.textContent = data['name']
 
             category.addEventListener("click", function() {
-                const settingsOptionsElem = document.getElementById("settings-options")
-                settingsOptionsElem.replaceChildren()
+                const settingsOptionsElement = document.getElementById("settings-options")
+                settingsOptionsElement.replaceChildren()
                 
                 const settingsOptionsTitle = document.createElement("div")
                 settingsOptionsTitle.className = "settings-options-title"
                 settingsOptionsTitle.textContent = data['name']
-                settingsOptionsElem.appendChild(settingsOptionsTitle)
+                settingsOptionsElement.appendChild(settingsOptionsTitle)
 
-                for (const option of data['settings']) {
-                    if (option === "") {
-                        settingsOptionsElem.appendChild(document.createElement("br"))
-                        continue
-                    } else if (typeof option === "object") {
-                        if (option['type'] === "text") {
-                            const text = document.createElement("div")
-                            text.textContent = option['text']
-                            settingsOptionsElem.appendChild(text)
-                        }
-                        continue
+                if (data['settings']) {
+                    function getSettingValue(option) {
+                        return settings[option] !== undefined ? settings[option] : settingsData[option]['default'] || false
                     }
-                    
-                    const values = settingsData[option]
-                    const holder = document.createElement("div")
-                    holder.className = "settings-option-holder"
-                    if (values['type'] === "toggle") {
-                        const toggle = document.createElement("input")
-                        toggle.type = "checkbox"
-                        toggle.className = "settings-option-checkbox"
-                        toggle.checked = settings[option] !== undefined ? settings[option] : values['default'] || false
 
-                        toggle.addEventListener("change", function() {
-                            if (toggle.checked !== values['default']) {
-                                settings[option] = toggle.checked
-                                text.style.color = "#ffeeaa"
-                            } else {
-                                delete settings[option]
-                                text.style.color = ""
-                            }
-
-                            if (toggle.checked && values['on']) {values['on']()}
-                            if (!toggle.checked && values['off']) {values['off']()}
-                            saveToLocal(settings, "arkivia-settings")
-                        })
-
-                        holder.appendChild(toggle)
-
-                        const text = document.createElement("span")
-                        text.textContent = values['text']
-                        holder.appendChild(text)
-                    } else if (values['type'] === "text") {
-                        const text = document.createElement("span")
-                        text.textContent = values['text']
-                        holder.appendChild(text)
-                        
-                        const textInput = document.createElement("input")
-                        textInput.type = "text"
-                        textInput.className = "settings-option-text-input"
-                        textInput.value = settings[option] !== undefined ? settings[option] : values['default'] || false
-
-                        function finish(mode) {
-                            if (textInput.value !== values['default']) {
-                                settings[option] = textInput.value
-                                text.style.color = "#ffeeaa"
-                            } else {
-                                delete settings[option]
-                                text.style.color = ""
-                            }
-
-                            if (mode === "key") {textInput.blur()}
-
-                            saveToLocal(settings, "arkivia-settings")
-                        }
-
-                        textInput.addEventListener("keydown", function(e) {
-                            if (e.key === "Enter") {textInput.blur()}
-                        })
-                        textInput.addEventListener("blur", finish)
-
-                        holder.appendChild(textInput)
-                    } else if (values['type'] === "color") {
-                        const text = document.createElement("span")
-                        text.textContent = values['text']
-                        holder.appendChild(text)
-                        
-                        const colorInput = document.createElement("input")
-                        colorInput.type = "color"
-                        colorInput.className = "settings-option-color-input"
-                        colorInput.value = settings[option] !== undefined ? settings[option] : values['default'] || "#000000"
-
-                        colorInput.addEventListener("change", function() {
-                            if (colorInput.value !== values['default']) {
-                                settings[option] = colorInput.value
-                                text.style.color = "#ffeeaa"
-                            } else {
-                                delete settings[option]
-                                text.style.color = ""
-                            }
-                            if (values['execute']) {values['execute'](colorInput.value)}
-                            saveToLocal(settings, "arkivia-settings")
-                        })
-
-                        colorInput.addEventListener("input", function() {
-                            if (values['execute']) {values['execute'](colorInput.value)}
-                        })
-
-                        holder.appendChild(colorInput)
-
-                        const resetButton = document.createElement("button")
-                        resetButton.textContent = "Reset"
-
-                        resetButton.addEventListener("click", function() {
-                            colorInput.value = values['default']
-                            delete settings[option]
-                            text.style.color = ""
-                            if (values['execute']) {values['execute'](colorInput.value)}
-                            saveToLocal(settings, "arkivia-settings")
-                        })
-
-                        holder.appendChild(resetButton)
+                    function checkModified(option) {
+                        return settings[option] !== undefined
                     }
-                    settingsOptionsElem.appendChild(holder)   
+
+                    for (const option of data['settings']) {
+                        if (option === "") {
+                            settingsOptionsElement.appendChild(document.createElement("br"))
+                            continue
+                        } else if (typeof option === "object") {
+                            if (option['type'] === "text") {
+                                const text = document.createElement("div")
+                                text.textContent = option['text']
+                                settingsOptionsElement.appendChild(text)
+                            }
+                            continue
+                        }
+                        
+                        const values = settingsData[option]
+                        const holder = document.createElement("div")
+                        holder.className = "settings-option-holder"
+                        if (values['type'] === "toggle") {
+                            const toggle = document.createElement("input")
+                            toggle.type = "checkbox"
+                            toggle.className = "settings-option-checkbox"
+                            toggle.checked = getSettingValue(option)
+
+                            toggle.addEventListener("change", function() {
+                                if (toggle.checked !== values['default']) {
+                                    settings[option] = toggle.checked
+                                    text.style.color = "#ffeeaa"
+                                } else {
+                                    delete settings[option]
+                                    text.style.color = ""
+                                }
+
+                                if (toggle.checked && values['on']) {values['on']()}
+                                if (!toggle.checked && values['off']) {values['off']()}
+                                saveToLocal(settings, "arkivia-settings")
+                            })
+
+                            holder.appendChild(toggle)
+
+                            const text = document.createElement("span")
+                            text.textContent = values['text']
+                            if (checkModified(option)) {text.style.color = "#ffeeaa"}
+                            holder.appendChild(text)
+                        } else if (values['type'] === "text") {
+                            const text = document.createElement("span")
+                            text.textContent = values['text']
+                            if (checkModified(option)) {text.style.color = "#ffeeaa"}
+                            holder.appendChild(text)
+                            
+                            const textInput = document.createElement("input")
+                            textInput.type = "text"
+                            textInput.className = "settings-option-text-input"
+                            textInput.value = getSettingValue(option)
+
+                            function finish(mode) {
+                                if (textInput.value !== values['default']) {
+                                    settings[option] = textInput.value
+                                    text.style.color = "#ffeeaa"
+                                } else {
+                                    delete settings[option]
+                                    text.style.color = ""
+                                }
+
+                                if (mode === "key") {textInput.blur()}
+
+                                saveToLocal(settings, "arkivia-settings")
+                            }
+
+                            textInput.addEventListener("keydown", function(e) {
+                                if (e.key === "Enter") {textInput.blur()}
+                            })
+                            textInput.addEventListener("blur", finish)
+
+                            holder.appendChild(textInput)
+                        } else if (values['type'] === "color") {
+                            const text = document.createElement("span")
+                            text.textContent = values['text']
+                            if (checkModified(option)) {text.style.color = "#ffeeaa"}
+                            holder.appendChild(text)
+                            
+                            const colorInput = document.createElement("input")
+                            colorInput.type = "color"
+                            colorInput.className = "settings-option-color-input"
+                            colorInput.value = getSettingValue(option) || "#000000"
+
+                            colorInput.addEventListener("change", function() {
+                                if (colorInput.value !== values['default']) {
+                                    settings[option] = colorInput.value
+                                    text.style.color = "#ffeeaa"
+                                } else {
+                                    delete settings[option]
+                                    text.style.color = ""
+                                }
+                                if (values['execute']) {values['execute'](colorInput.value)}
+                                saveToLocal(settings, "arkivia-settings")
+                            })
+
+                            colorInput.addEventListener("input", function() {
+                                if (values['execute']) {values['execute'](colorInput.value)}
+                            })
+
+                            holder.appendChild(colorInput)
+
+                            const resetButton = document.createElement("button")
+                            resetButton.textContent = "Reset"
+
+                            resetButton.addEventListener("click", function() {
+                                colorInput.value = values['default']
+                                delete settings[option]
+                                text.style.color = ""
+                                if (values['execute']) {values['execute'](colorInput.value)}
+                                saveToLocal(settings, "arkivia-settings")
+                            })
+
+                            holder.appendChild(resetButton)
+                        }
+                        settingsOptionsElement.appendChild(holder)   
+                    }
+                }
+
+                if (data['execute']) {
+                    data['execute'](settingsOptionsElement)
                 }
             })
 
@@ -5115,7 +5358,7 @@ function makeSave() { // Optimisation at all costs
     removeEmpty("titleScores", base)
     removeEmpty("achievements", base)
     if (base['processStatus']['type'] === null) {base['processStatus'] = undefined}
-    if (base['currentPrependText'] === null) {base['currentPrependText'] = undefined}
+    if (!base['currentPrependText']) {base['currentPrependText'] = undefined}
 
     // Combat
     if (base['combatStatus']['enemy'] === null) {base['combatStatus'] = undefined}
@@ -5130,6 +5373,8 @@ function makeSave() { // Optimisation at all costs
     removeEmpty("storage", base)
     removeEmpty("storageNonStackable", base)
     if (base['storageAccess'] === false) {base['storageAccess'] = undefined}
+    if (base['inventoryNonStackableIncrement'] === 0) {base['inventoryNonStackableIncrement'] = undefined}
+    if (base['knownRecipes'].length <= 2) {base['knownRecipes'] = undefined} // Hopefully shouldn't break anything
     removeEmpty("shopStorage", base)
 
     // Quests
@@ -5160,6 +5405,9 @@ function makeSave() { // Optimisation at all costs
         base['processStatus'] = undefined
     }
     removeEmpty("activeActions", base)
+
+    // Misc
+    base['timestamp'] = Math.round(Date.now() / 1000)
 
     base = Object.fromEntries(Object.entries(base).filter(([key, value]) => value !== undefined))
     return base
@@ -5226,6 +5474,27 @@ function versionCompare(v1, v2) {
 function loadSave(dict) {
     const startTime = performance.now()
     try {
+        if (versionCompare(dict['version'], VERSION)) {
+            for (let i = 3; i > 1; i--) {
+                const previous = localStorage.getItem(`arkivia-save-backup${i - 1}`)
+        
+                if (previous) {
+                    localStorage.setItem(`arkivia-save-backup${i}`, previous)
+                }
+            }
+            saveToLocal(dict, "arkivia-save-backup1")
+            gameTitleElement.textContent = `Arkivia v${VERSION} (Update)`
+            gameTitleElement.classList.add("update")
+            gameTitleElement.addEventListener("click", function() {
+                gameTitleElement.textContent = `Arkivia v${VERSION}`
+                gameTitleElement.classList.remove("update")
+            }, {"once": true})
+            setTimeout(function() {
+                gameTitleElement.textContent = `Arkivia v${VERSION}`
+                gameTitleElement.classList.remove("update")
+            }, 20000)
+        }
+
         // Migrations
         if (versionCompare(dict['version'], "0.17")) {
             combatStatus['enemyEffects'] ??= []
@@ -5251,18 +5520,6 @@ function loadSave(dict) {
             dict['combatStatus'] = dict['combatData']
             dict['craftStatus'] = dict['craftInfo']
             dict['exploreStatus'] = dict['exploreData']
-        }
-        if (versionCompare(dict['version'], VERSION)) {
-            gameTitleElement.textContent = `Arkivia v${VERSION} (Update)`
-            gameTitleElement.classList.add("update")
-            gameTitleElement.addEventListener("click", function() {
-                gameTitleElement.textContent = `Arkivia v${VERSION}`
-                gameTitleElement.classList.remove("update")
-            }, {"once": true})
-            setTimeout(function() {
-                gameTitleElement.textContent = `Arkivia v${VERSION}`
-                gameTitleElement.classList.remove("update")
-            }, 20000)
         }
         
         // Stats

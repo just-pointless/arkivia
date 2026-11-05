@@ -228,6 +228,29 @@ img {
     background-color: #664444;
 }
 
+#multi-holder {
+    position: absolute;
+    bottom: 120px;
+}
+
+.multi-button {
+    display: inline;
+    color: #9999bb;
+    font-size: 16px;
+    outline: 1px solid #0000bb;
+    cursor: pointer;
+    user-select: none;
+}
+
+.multi-button:hover {
+    background-color: #444466;
+}
+
+.multi-button.selected {
+    outline: 1px solid #7777dd;
+    background-color: #4444aa;
+}
+
 #inventory-weight {
     display: inline;
     position: absolute;
@@ -389,7 +412,7 @@ img {
 }
 
 #inventory-table {
-    max-height: calc(100% - 140px);
+    max-height: calc(100% - 180px);
     overflow-y: auto;
     scrollbar-color: #555555 #333333;
     scrollbar-width: thin;
@@ -706,6 +729,7 @@ img {
     width: calc(100% - 220px);
     height: 100%;
     left: 220px;
+    white-space: pre-wrap;
     color: #ffffff;
     overflow-y: auto;
     overflow-x: hidden;
@@ -750,4 +774,31 @@ img {
 
 .settings-option-color-input {
     padding: 0;
+}
+
+.settings-save-holder {
+    position: relative;
+    background-color: #333333;
+    width: 200px;
+    min-height: 50px;
+    margin-top: 8px;
+    padding-bottom: 20px;
+    border: 2px solid #555555
+}
+
+.settings-save-title {
+    width: 100%;
+    height: 20px;
+    font-size: 16px;
+    line-height: 20px;
+}
+
+.settings-save-data {
+    white-space: pre;
+}
+
+.settings-save-download {
+    position: absolute;
+    bottom: 0;
+    right: 0;
 }
