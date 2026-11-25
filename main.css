@@ -147,7 +147,7 @@ img {
     background-color: var(--center-bottom-background);
 }
 
-.action-button {
+.action-button, .route-button {
     display: inline;
     padding-inline: 6px;
     padding-block: 1px;
@@ -159,9 +159,19 @@ img {
     cursor: pointer;
 }
 
+.route-button {
+    color: #00ffff;
+    border: 1px solid #007777;
+}
+
 .action-button.enabled {
     background-color: #333333;
     border: 1px solid #00aa00;
+}
+
+.route-button.enabled {
+    background-color: #333333;
+    border: 1px solid #00aaaa;
 }
 
 .action-button:hover {
@@ -183,7 +193,7 @@ img {
     color: var(--color);
 }
 
-#inventory-table, #quests-table, #completed-quests-table, #achievements-table {
+#inventory-table, #quests-table, #completed-quests-table, #achievements-table, #storage-table-alt {
     border: 1px solid #555555;
     border-left: 2px solid #555555;
     border-right: 2px solid #555555;
@@ -810,4 +820,10 @@ img {
     position: absolute;
     bottom: 0;
     right: 0;
+}
+
+.settings-route-recording-holder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
