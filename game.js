@@ -1,4 +1,4 @@
-const VERSION = "0.28"
+const VERSION = "0.28.1"
 
 const gameTitleElement = document.getElementById("game-title")
 gameTitleElement.textContent = `Arkivia v${VERSION}`
@@ -3204,7 +3204,7 @@ function getDamageBreakdown() {
 }
 
 function changeBattlestat(stat, amount, absolute=false) {
-    if (stat !== "str" || stat !== "def" || stat !== "spd" || stat !== "dex") {
+    if (stat !== "str" && stat !== "def" && stat !== "spd" && stat !== "dex") {
         insertLog(colorGen("#ff0000", `Attempted to change invalid battlestat (${stat})`))
         return
     }
