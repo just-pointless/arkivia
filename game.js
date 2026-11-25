@@ -1,4 +1,4 @@
-const VERSION = "0.28.1"
+const VERSION = "0.28.2"
 
 const gameTitleElement = document.getElementById("game-title")
 gameTitleElement.textContent = `Arkivia v${VERSION}`
@@ -2237,7 +2237,7 @@ function changeStorage(item, amount, itemId=null, newItemData=null, announce=tru
             itemLogStackData = {"id": null, "item": null, "amount": null, "type": null}
         }
         itemLogStackData['amount'] += amount
-        itemLogStackData['id'] = insertLog(`Deposited ${genItemLogText(item, itemLogStackData['amount'])}`, [itemData[item]['name'], itemData[item]['desc']], itemLogStackData['id'])
+        itemLogStackData['id'] = insertLog(`Deposited ${genItemLogText(item, itemLogStackData['amount'])}`, [itemData[item]['name'], itemData[item]['desc']], "deposit", itemLogStackData['id'])
         itemLogStackData['type'] = "deposit"
         itemLogStackData['item'] = item
     }
